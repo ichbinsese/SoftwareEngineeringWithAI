@@ -1,12 +1,14 @@
-<Requirement>
-  <Number>0.0</Number>
-  <Name>Example</Name>
-  <Type>HLR/LLR</Type>
-  <Traces>
-    <Trace>1.1.1</Trace>
-    <Trace>1.1.2</Trace>
-  </Traces>
-  <Content>
-    Example Example Example
-  </Content>
-</Requirement>
+<Requirements version="0.0">
+  <Requirement>
+    <Number>0.0</Number>
+    <Name>Example</Name>
+    <Type>HLR/LLR</Type>
+    <Traces>
+      <Trace>1.1.1</Trace>
+      <Trace>1.1.2</Trace>
+    </Traces>
+    <Content>
+      Example Example Example
+    </Content>
+  </Requirement>
+</Requirements>
