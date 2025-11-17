@@ -1,0 +1,17 @@
+This is a Prompt!
+You can write normal text.
+You can insert variables like this, using markers:
+
+What is {{ value1 }} times {{ value2 }}
+
+These variables will be set by the script used to communicate with the API
+
+There are some default marker names, which should be universally used:
+
+{{requirements}} : All requirements, with all data associated
+
+{{HLRs}} All High level requirements, with all data except requirement type
+
+{{LLRs}} All Low level requirements, with all data except requirement type
+
+[...]
