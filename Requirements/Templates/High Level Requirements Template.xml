@@ -1,0 +1,15 @@
+<Requirements version="{version}" type = "HLR">
+
+    <Requirement type="HLR">
+        <ID>{Requirement ID}</ID>
+        <Name>{Requirement Name}</Name>
+        <Relationships>
+            <DependsOn>{HLR this one depends on}</DependsOn>
+        </Relationships>
+         <Content>
+            {Requirement Content}
+         </Content>
+    </Requirement>
+
+    <!-- Repeat for each High Level Requirement -->
+</Requirements>
