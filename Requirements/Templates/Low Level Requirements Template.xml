@@ -1,6 +1,6 @@
-<Requirements version="{version}" type = "LLR">
+<Requirements version="{version}" hierarchy= "LLR">
 
-    <Requirement type="LLR">
+    <Requirement type="{type}">
         <ID>{Requirement ID}</ID>
         <Name>{Requirement Name}</Name>
         <Relationships>
