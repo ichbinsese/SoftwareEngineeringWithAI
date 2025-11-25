@@ -1,5 +1,5 @@
-### IMPORTANT
-**Do NOT push the API key to git!!**
+> [!IMPORTANT]
+> Do NOT push the API key to git!!
 
 
 ## Setup
