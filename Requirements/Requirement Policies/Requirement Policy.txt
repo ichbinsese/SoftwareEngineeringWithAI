@@ -1,1 +1,10 @@
-
+REQ_POLICY:
+P1 Source-bound: Use only information from the input document.
+P2 Atomic: One requirement = one function, behavior, constraint, or interface.
+P3 Unambiguous: Avoid vague terms unless quantified.
+P4 Verifiable: Each requirement must be testable.
+P5 Complete: Each requirement must be understandable without the source text.
+P6 Consistent: No contradictions or duplicates.
+P7 Feasible: Requirements must describe realistic behavior.
+P8 Traceable: Relationships may only reference valid requirement IDs.(only applies to transition from HLR to LLR)
+P9 Mandatory wording: Requirement content must use "shall".
