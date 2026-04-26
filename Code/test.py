@@ -12,9 +12,11 @@ client = OpenAI(
     api_key=api_key
 )
 
+
+
 response = client.responses.create(
     model = "gpt-5-nano",
-    input = "Say Hello World",
+    input = "Describe your capabilites",
     store = True
 )
 

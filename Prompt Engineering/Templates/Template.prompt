@@ -14,4 +14,5 @@ There are some default marker names, which should be universally used:
 
 {{LLRs}} All Low level requirements, with all data except requirement type
 
+{{file}} <path> Adds the content of the file specified in path
 [...]
