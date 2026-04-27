@@ -15,4 +15,8 @@ There are some default marker names, which should be universally used:
 {{LLRs}} All Low level requirements, with all data except requirement type
 
 {{file}} <path> Adds the content of the file specified in path
+
+{{check}} Sends the prompt and contiuse when the answer is check
+
+{{await}} <path>  Awaits the answer, saves them to the file path
 [...]
