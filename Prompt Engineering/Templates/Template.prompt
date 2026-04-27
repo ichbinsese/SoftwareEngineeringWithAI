@@ -1,10 +1,5 @@
 This is a Prompt!
 You can write normal text.
-You can insert variables like this, using markers:
-
-What is {{ value1 }} times {{ value2 }}
-
-These variables will be set by the script used to communicate with the API
 
 There are some default marker names, which should be universally used:
 
@@ -16,7 +11,10 @@ There are some default marker names, which should be universally used:
 
 {{file}} <path> Adds the content of the file specified in path
 
-{{check}} Sends the prompt and contiuse when the answer is check
+Use these to control the flow of the conversation
 
-{{await}} <path>  Awaits the answer, saves them to the file path
-[...]
+{check} Sends the prompt and contiuse when the answer is check
+
+{store} <path>  Awaits the answer, saves them to the file path
+
+
