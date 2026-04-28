@@ -13,7 +13,11 @@ There are some default marker names, which should be universally used:
 
 Use these to control the flow of the conversation
 
-{check} Sends the prompt and contiuse when the answer is check
+{send} sends the text before and keeps the answer in chat
+
+{sendoff} sends the text but doesnt keep the answer
+
+{check} contiuse when the answer is check
 
 {store} <path>  Awaits the answer, saves them to the file path
 
