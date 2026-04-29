@@ -54,7 +54,7 @@ class _SplitterFunctions:
 
     @staticmethod
     def store(text:str,plain_text:str,agent:Agent):
-        path = plain_text[plain_text.find("<"):plain_text.find(">")]
+        path = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
         return  [
            # (_PromptFunctions.send , [text,agent]),
             (_PromptFunctions.store , [agent.get_last_response,path]),
@@ -88,7 +88,9 @@ class _PromptFunctions:
     @staticmethod
     def store(answer_method, path:str):
         answer = answer_method()
-        with open(path,"w+") as f:
+        load_dotenv()
+        root = os.getenv("ROOT")
+        with open(f"{root}/{path}","w+",encoding="UTF-8") as f:
             f.write(answer)
 
 
@@ -117,7 +119,6 @@ class Prompt(object):
         self.agent = agent
         self._fill_markers()
         self._split_prompt()
-        print(self.prompt)
 
 
     def _fill_markers(self):
