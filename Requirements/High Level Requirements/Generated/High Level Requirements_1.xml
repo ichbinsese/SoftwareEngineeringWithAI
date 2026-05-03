@@ -1,0 +1,9 @@
+<?xml version="1.0" ?>
+<Requirements version="1" hierarchy="HLR">
+  <Requirement ID="HL-EXPL-1.1">
+    <Type>NFR / FR</Type>
+    <Name>Example</Name>
+    <Content>Example Description</Content>
+    <Relationships/>
+  </Requirement>
+</Requirements>

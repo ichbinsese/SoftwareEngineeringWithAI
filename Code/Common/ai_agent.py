@@ -2,36 +2,33 @@
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from  project_utils import ProjectUtils
 import os
 import time
 
-class _Logger:
+class _AgentLogger:
     def __init__(self,agent):
-        load_dotenv()
-        self.root = os.getenv('ROOT')
         self.agent = agent
         date_time = time.strftime("%Y-%m-%d--%H-%M-%S")
-        self.log_path = f"{self.root}/Logs/session_{date_time}.log"
-        with open(self.log_path,"w+",encoding="UTF-8") as file:
-            file.write(f"Log of {self.agent.identifier}\n")
+        self.log_path = f"Logs/session_{date_time}.log"
+        ProjectUtils.write_file(self.log_path,f"Log of {self.agent.identifier}\n")
 
     def log_received_message(self,message:str):
         date_time = time.strftime("%Y-%m-%d--%H:%M:%S")
-        with open(self.log_path, "a",encoding="UTF-8") as file:
-            file.write(f"[{date_time}]Agent: {message}\n")
+        ProjectUtils.write_file(self.log_path, f"[{date_time}]Agent: {message}\n",overwrite=False)
 
     def log_sent_message(self,message:str):
         date_time = time.strftime("%Y-%m-%d--%H:%M:%S")
-        with open(self.log_path, "a",encoding="UTF-8") as file:
-            file.write(f"[{date_time}]User: {message}\n")
+        ProjectUtils.write_file(self.log_path, f"[{date_time}]User: {message}\n",overwrite=False)
+
 
 
 class AIAgent:
-
     responses = []
 
     chat_history = []
 
+    identifier = ""
 
     def __init__(self,behaviour:str=None,identifier:str = None,model:str = None):
         load_dotenv()
@@ -40,12 +37,16 @@ class AIAgent:
             self.chat_history.append( {"role": "system", "content": behaviour} )
         if identifier is None:
             self.identifier = "Default Name"
+        else:
+            self.identifier = identifier
         if model is None:
             self.model = "gpt-5-nano"
+        else:
+            self.model = model
         self.client = OpenAI(
             api_key=self.api_key
         )
-        self.logger = _Logger(self)
+        self.logger = _AgentLogger(self)
 
     def _send_message(self, message:str):
         self.logger.log_sent_message(message)
@@ -76,3 +77,8 @@ class AIAgent:
             return None
 
 
+class AgentUtils:
+    @staticmethod
+    def create_agent(agent_type:str,model:str=None):
+        behaviour = ProjectUtils.get_behaviour_text(agent_type)
+        return  AIAgent(behaviour,agent_type,model)

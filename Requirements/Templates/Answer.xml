@@ -1,0 +1,11 @@
+<Answer>
+    <Justification>
+        <FindingID> {Finding ID} </FindingID>
+        <Explanation> {Explanation} </Explanation>
+    </Justification>
+
+    <Implementation>
+        <FindingID> {Finding ID} </FindingID>
+        <Solution> {Solution} </Solution>
+    </Implementation>
+</Answer>

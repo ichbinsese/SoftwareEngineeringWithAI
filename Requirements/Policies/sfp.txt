@@ -1,0 +1,34 @@
+Software Findings Policy (SFP)
+
+1. Reason
+
+2. Format
+
+3. Finding
+
+4. Answer
+
+Requirement Finding
+
+<Findings version="{version}" source_version = "{source_version}"  source= "HLR/LLR">
+    <Finding id = "{finding id}">
+        <RequirementID> {RequirementID} </RequirementID>
+
+        <Description> {Description} </Description>
+        <Solution> {Solution} </Solution>
+    </Finding>
+</Findings>
+
+Finding Answer
+
+<Answer>
+    <Justification>
+        <FindingID> {Finding ID} </FindingID>
+        <Explanation> {Explanation} </Explanation>
+    </Justification>
+
+    <Implementation>
+        <FindingID> {Finding ID} </FindingID>
+        <Solution> {Solution} </Solution>
+    </Implementation>
+</Answer>
