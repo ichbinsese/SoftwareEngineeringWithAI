@@ -1,5 +1,8 @@
+from Code.Common import ai_agent
 from ai_agent import AIAgent as Agent, AIAgent
 from dotenv import load_dotenv
+from  project_utils import ProjectUtils
+from iteration_manager import IterationManager
 import os
 
 class _MarkerFunctions:
@@ -18,15 +21,18 @@ class _MarkerFunctions:
 
     @staticmethod
     def file(plain_text:str, position:int):
-        load_dotenv()
-        root = os.getenv("ROOT")
         path = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
         plain_text = plain_text.replace("<" + path + ">","",1)
-        print(f"{root}/{path}")
-        with open(f"{root}/{path}", "r",encoding="utf-8") as file:
-            plain_text = plain_text[:position] + file.read() + plain_text[:position]
+        plain_text = plain_text[:position] + ProjectUtils.read_file(path) + plain_text[position:]
         return plain_text
 
+    @staticmethod
+    def iteration(plain_text:str, position:int):
+        iteration_type = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
+        iteration = IterationManager.get_iteration(iteration_type)
+        plain_text = plain_text.replace("<" + iteration_type + ">", "", 1)
+        plain_text = plain_text[:position] + iteration + plain_text[:position]
+        return plain_text
 
 class _SplitterFunctions:
 
@@ -88,10 +94,8 @@ class _PromptFunctions:
     @staticmethod
     def store(answer_method, path:str):
         answer = answer_method()
-        load_dotenv()
-        root = os.getenv("ROOT")
-        with open(f"{root}/{path}","w+",encoding="UTF-8") as f:
-            f.write(answer)
+        ProjectUtils.write_file(path, answer)
+
 
 
 class Prompt(object):
@@ -102,7 +106,8 @@ class Prompt(object):
         "{{requirements}}" : _MarkerFunctions.requirements,
         "{{HLRs}}" : _MarkerFunctions.HLRs,
         "{{LLRs}}" : _MarkerFunctions.LLRs,
-        "{{file}}" : _MarkerFunctions.file
+        "{{file}}" : _MarkerFunctions.file,
+        "{{iteration}}" : _MarkerFunctions.iteration,
     }
 
     splitters = {
@@ -139,7 +144,6 @@ class Prompt(object):
             res = min(matches, key=lambda x: x[1])
             self.plain_prompt = self.plain_prompt.replace(res[0], "",1)
             text = self.plain_prompt[0:res[1]]
-
             self.prompt +=  self.splitters[res[0]](text,self.plain_prompt,self.agent)
             self.plain_prompt = self.plain_prompt[res[1]:]
 
@@ -147,3 +151,10 @@ class Prompt(object):
     def send_prompt(self):
         for sub_prompt in self.prompt:
            sub_prompt[0](*sub_prompt[1])
+
+
+class PromptUtils:
+    @staticmethod
+    def get_prompt(instance: str, prompt: str, agent: ai_agent.AIAgent) -> Prompt:
+        prompt_text = ProjectUtils.get_prompt_text(instance, prompt)
+        return Prompt(prompt_text, agent)

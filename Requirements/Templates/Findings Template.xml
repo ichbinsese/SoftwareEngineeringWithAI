@@ -1,0 +1,8 @@
+<Findings version="{version}" source_version = "{source_version}"  source= "HLR/LLR">
+    <Finding id = "{finding id}">
+        <RequirementID> {RequirementID} </RequirementID>
+
+        <Description> {Description} </Description>
+        <Solution> {Solution} </Solution>
+    </Finding>
+</Findings>
