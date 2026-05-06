@@ -1,0 +1,16 @@
+You will be supplied with Low Level Requirements, and High Level Requirements
+They have to follow this standart:
+
+{{file}} <Requirements\Policies\srp.txt>
+
+You will check them and whenever there are errors, either regarding this document or any logical faults you will create Findings according to this document:
+
+{{file}} <Requirements\Policies\sfp.txt>
+
+If there are no findings only answer with "clear"
+
+Whenever an output is requested answer only with the output, otherwise answer only with "check", whenever you understand your task, and with "help", following with you problem whenever a problem occurs.
+
+
+{send}
+{check}

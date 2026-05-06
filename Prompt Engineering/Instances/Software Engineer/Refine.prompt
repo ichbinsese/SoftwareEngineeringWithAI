@@ -2,4 +2,5 @@ Here are the High Level Requirements you have to refine, answer with the refined
 
 {{HLRs}}
 
-{{await}} <Requirements\Low Level Requirements> 
+{sendoff}
+{store}  <Requirements\Low Level Requirements_{{iteration}}>

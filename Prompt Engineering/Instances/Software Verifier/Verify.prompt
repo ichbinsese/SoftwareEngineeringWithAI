@@ -1,0 +1,6 @@
+{{requirements}}
+
+Check these Low Level Requirements and answer with Findings
+
+{send}
+{store} <Requirements\Low Level Requirements\Findings\Low Level Findings_{{iteration}}.xml>

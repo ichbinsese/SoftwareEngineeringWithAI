@@ -1,0 +1,9 @@
+{{requirements}}
+
+{{file}} <Requirements\Low Level Requirements\Answers\Low Level Answers{{iteration}}.xml>
+
+Your previous findings were incorporated into the Requirements.
+Verify the correct incorporation, Verify the Justifications, and check for further mistakes and answer with findings
+
+{send}
+{store} <Requirements\Low Level Requirements\Findings\Low Level Findings_{{iteration}}.xml>
