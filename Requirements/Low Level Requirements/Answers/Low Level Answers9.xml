@@ -1,0 +1,8 @@
+help
+Problem: I cannot generate the requested Answer Document detailing reasoning and justifications because I do not have the contents of Low Level Requirements_10.xml. Please paste the contents of Low Level Requirements_10.xml (or upload the file) so I can parse it and produce:
+- An Answer document in the required XML format with findings, justifications, and implementations for LL-10.
+- For each LL-10 finding, a FindingID (e.g., LLR--10--1), a justification, and an implementation section.
+- Verification of traceability: LL-10 refinements to HL requirements, dependencies, potential duplicates or circularities (including LL-LOC-7.1 interactions if applicable), and consistency in naming (e.g., Cell Classification).
+- Any necessary corrections to HL/LL relationships and propagation of naming fixes.
+
+If you provide LL-10 content now, I’ll produce the full Answer Document immediately.

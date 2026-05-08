@@ -1,0 +1,27 @@
+help
+Problem: I cannot generate the requested Answer Document detailing reasoning and justifications because I do not have access to the contents of the file "Low Level Requirements_3.xml" you referenced. To produce the correct Findings, Justifications, and Implementations, I need the actual LL3 XML content (or a pasted listing of its <Requirement> entries and their relationships).
+
+What I need from you:
+- Paste the contents of Low Level Requirements_3.xml, or upload the file so I can parse it.
+- If you prefer, confirm the Findings that resulted from reviewing LL3.xml (e.g., any gaps, conflicts, or traceability issues you want me to document).
+- Confirm the Findings document version to reference (e.g., findings_version) and the source_version (likely the LL3.xml version).
+
+What I will deliver once I have LL3.xml content:
+- An Answer document in the required XML format, structured as:
+  <Answer findings_version="{findings_version}" findings_type="LLR">
+    <Justification> ... </Justification>
+    <Implementation> ... </Implementation>
+    ...
+  </Answer>
+- For each Finding in LL3.xml, I will provide:
+  - A FindingID following the pattern appropriate for the new LL3 findings (e.g., LLR--3--1, etc.).
+  - A <Justification> describing why the finding is valid or not (if accepted, or if not, a rationale).
+  - An <Implementation> detailing how the finding was addressed (e.g., new LL requirements added, renames, relationship corrections, or traceability fixes).
+- I will also verify:
+  - That every High-Level Requirement referenced in LL3 is refined by at least one Low-Level Requirement (or note if a revision is needed).
+  - That LL requirements that refine HL requirements have correct <Refines> and no conflicting dependencies.
+  - Spelling and naming consistency (e.g., HL-MAP-2.2 name corrected to “Cell Classification” and propagated).
+  - No circular or invalid dependencies, and that Localisation/Pose Estimation (LL-LOC-7.1) has a clean dependency graph.
+  - Any necessary traceability adjustments (e.g., ensuring LL-LOC-7.1 both refines an HL item and has sensible dependencies).
+
+If you can provide LL3.xml content now, I’ll produce the full Answer Document immediately.

@@ -1,0 +1,18 @@
+<Answer findings_version="25" findings_type="LLR">
+  <Justification>
+    <FindingID>LLR--25--1</FindingID>
+    <Explanation>LL-25 content has not been provided. Without LL-25 content, we cannot verify refinements, dependencies, or traceability (including interactions with LL-LOC-7.1).</Explanation>
+  </Justification>
+
+  <Implementation>
+    <FindingID>LLR--25--1</FindingID>
+    <Solution><![CDATA[
+<Requirement ID="LL-25-PLACEHOLDER-1">
+  <Type>FR</Type>
+  <Name>Placeholder for LL-25 content</Name>
+  <Relationships/>
+  <Content>LL-25 content to be provided by you. This placeholder exists to document that LL-25 analysis cannot proceed until LL-25 content is available.</Content>
+</Requirement>
+]]></Solution>
+  </Implementation>
+</Answer>

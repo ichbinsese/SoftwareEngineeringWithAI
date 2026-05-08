@@ -7,7 +7,9 @@ class IterationManager:
     iterations = {
         "llr" : 1,
         "hlr" : 1,
-    }
+        "llf" : 1,
+        "lla" : 1,
+     }
 
     @staticmethod
     def initialize():

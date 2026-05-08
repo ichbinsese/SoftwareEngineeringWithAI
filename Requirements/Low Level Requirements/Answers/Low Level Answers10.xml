@@ -1,0 +1,8 @@
+<Findings version="11" source="LLR" source_version="11">
+  <Finding id="LLR--11--1">
+    <ItemID>LL-UNKNOWN-11.0</ItemID>
+    <Severity>Major</Severity>
+    <Description>Low Level Requirements document LL-11.xml content was not provided. Without LL-11 content, we cannot verify refinements, dependencies, or traceability (including interactions with LL-LOC-7.1) and naming consistency.</Description>
+    <Solution>Provide LL-11.xml contents (or paste its LL-11.x requirements). After receipt, I will generate an Answer Document with Findings, Justifications, and Implementations, and perform full traceability checks including LL-LOC-7.1 interactions and naming propagation.</Solution>
+  </Finding>
+</Findings>

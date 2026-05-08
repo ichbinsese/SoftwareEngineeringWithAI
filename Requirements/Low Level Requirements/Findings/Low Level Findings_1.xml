@@ -1,0 +1,20 @@
+<Findings version="1" source="LLR" source_version="1">
+  <Finding id="LLR--1--1">
+    <ItemID>HL-EXPL-1.2</ItemID>
+    <Severity>Major</Severity>
+    <Description>High-Level requirement HL-EXPL-1.2 is not refined by any Low-Level Requirement in the provided LL document. This breaks traceability and refinement coverage across the hierarchy.</Description>
+    <Solution>Add a Low-Level Requirement LL-EXPL-1.4 that refines HL-EXPL-1.2 and depends on LL-EXPL-1.2. Example: LL-EXPL-1.4 Wall detection reliability and integration; Content: "Robot shall reliably detect walls under varying sensor noise conditions and integrate detections into the occupancy map."</Solution>
+  </Finding>
+  <Finding id="LLR--1--2">
+    <ItemID>HL-MAP-2.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>Typo in High-Level Requirement name HL-MAP-2.2: "Cell Clasification". The correct spelling is "Cell Classification".</Description>
+    <Solution>Correct the HL name to "Cell Classification" and ensure all references to this requirement use the corrected spelling to maintain consistency.</Solution>
+  </Finding>
+  <Finding id="LLR--1--3">
+    <ItemID>HL-EXPL-1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>There is no explicit Low-Level Requirement for Localization/Pose Estimation to support exploration and mapping as described by HL-EXPL-1.1 and its usage by mapping/planning components.</Description>
+    <Solution>Add LL-LOC-7.1 Localization and Pose Estimation refining HL-EXPL-1.1; Content: "Robot shall estimate its pose in the environment using sensor fusion and provide pose with uncertainty; Pose updates shall be integrated into the map and planning modules."</Solution>
+  </Finding>
+</Findings>

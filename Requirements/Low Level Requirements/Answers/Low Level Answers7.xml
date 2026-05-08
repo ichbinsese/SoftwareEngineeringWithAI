@@ -1,0 +1,23 @@
+help
+Problem: I cannot generate the requested Answer Document detailing reasoning and justifications because I do not have the contents of Low Level Requirements_8.xml. I need the actual LL8 content to produce Findings, Justifications, Implementations, and the complete Answer document.
+
+What I need from you:
+- Paste the contents of Low Level Requirements_8.xml (or upload the file) so I can parse it.
+- If you prefer, provide any specific Findings you want documented (e.g., gaps, conflicts, traceability issues) for LL-8.
+- Confirm the findings_version to reference (e.g., 8) and the source_version (LL-8) if applicable.
+
+What I will deliver once I have LL-8 content:
+- An Answer document in the required XML format with findings, justifications, and implementations, structured as:
+  <Answer findings_version="{findings_version}" findings_type="LLR">
+    <Justification> ... </Justification>
+    <Implementation> ... </Implementation>
+    ...
+  </Answer>
+- For each Finding in LL-8, a FindingID following the pattern LLR--8--{n}, a <Justification>, and an <Implementation>.
+- Verification tasks:
+  - Ensure every High-Level Requirement referenced in LL-8 is refined by at least one LL-8; address any gaps.
+  - Validate LL-8 refinements to HL, and check dependencies for correctness and absence of cycles (including LL-LOC-7.1 interactions if applicable).
+  - Propagate naming fixes (e.g., Cell Classification) from HL to LL where needed.
+  - Adjust traceability as required (Refines, DependsOn) and provide necessary corrections in the Implementations.
+
+If you provide LL-8 content now, I’ll produce the full Answer Document immediately.

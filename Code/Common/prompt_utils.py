@@ -1,66 +1,73 @@
 from Code.Common import ai_agent
-from ai_agent import AIAgent as Agent, AIAgent
-from dotenv import load_dotenv
-from  project_utils import ProjectUtils
-from iteration_manager import IterationManager
+from Code.Common.ai_agent import AIAgent as Agent
+from Code.Common.project_utils import ProjectUtils
+from Code.Common.iteration_manager import IterationManager
 import os
 
 class _MarkerFunctions:
     #must return plain text
     @staticmethod
     def requirements(plain_text:str, position:int):
+        ll_requirements = ProjectUtils.read_file(f"Requirements/High Level Requirements/Generated/High Level Requirements_{IterationManager.get_iteration("hlr") }.xml")
+        hl_requirements = ProjectUtils.read_file( f"Requirements/Low Level Requirements/Generated/Low Level Requirements_{IterationManager.get_iteration("llr") }.xml")
+        plain_text = plain_text[:position] + ll_requirements + hl_requirements + plain_text[position:]
         return plain_text
 
     @staticmethod
     def HLRs(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file(f"Requirements/High Level Requirements/Generated/High Level Requirements_{IterationManager.get_iteration("hlr") }.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
         return plain_text
 
     @staticmethod
     def LLRs(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file( f"Requirements/Low Level Requirements/Generated/Low Level Requirements_{IterationManager.get_iteration("llr") - 1}.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
         return plain_text
 
     @staticmethod
     def file(plain_text:str, position:int):
-        path = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
+        path = plain_text[plain_text.find("<",position) + 1:plain_text.find(">",position)]
         plain_text = plain_text.replace("<" + path + ">","",1)
         plain_text = plain_text[:position] + ProjectUtils.read_file(path) + plain_text[position:]
         return plain_text
 
     @staticmethod
     def iteration(plain_text:str, position:int):
-        iteration_type = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
+        iteration_type = plain_text[plain_text.find("<",position) + 1:plain_text.find(">",position)]
         iteration = IterationManager.get_iteration(iteration_type)
         plain_text = plain_text.replace("<" + iteration_type + ">", "", 1)
-        plain_text = plain_text[:position] + iteration + plain_text[:position]
+        plain_text = plain_text[:position] + str(iteration) + plain_text[position:]
         return plain_text
 
 class _SplitterFunctions:
 
-    #must all hove text, plain_text and agent as parameters
+    #must all hove text, plain_text, agent and position as parameters
 
     @staticmethod
-    def sendoff(text: str, plain_text: str, agent: Agent):
+    def sendoff(text: str, plain_text: str, agent: Agent,position:int):
         return [
             (_PromptFunctions.sendoff, [text, agent]),
         ]
 
 
     @staticmethod
-    def send(text: str, plain_text: str, agent: Agent):
+    def send(text: str, plain_text: str, agent: Agent,position:int):
         return [
             (_PromptFunctions.send, [text, agent]),
         ]
 
     @staticmethod
-    def check(text:str,plain_text:str,agent:Agent):
+    def check(text:str,plain_text:str,agent:Agent,position:int):
         return  [
            # ( _PromptFunctions.send ,  [text,agent]),
             ( _PromptFunctions.check , [agent.get_last_response])
         ]
 
     @staticmethod
-    def store(text:str,plain_text:str,agent:Agent):
-        path = plain_text[plain_text.find("<") + 1:plain_text.find(">")]
+    def store(text:str,plain_text:str,agent:Agent,position:int):
+        path = plain_text[plain_text.find("<",position) + 1:plain_text.find(">",position)]
+
         return  [
            # (_PromptFunctions.send , [text,agent]),
             (_PromptFunctions.store , [agent.get_last_response,path]),
@@ -94,7 +101,7 @@ class _PromptFunctions:
     @staticmethod
     def store(answer_method, path:str):
         answer = answer_method()
-        ProjectUtils.write_file(path, answer)
+        ProjectUtils.write_file(path, answer,overwrite=True)
 
 
 
@@ -103,11 +110,11 @@ class Prompt(object):
     plain_prompt = ""
 
     markers = {
+        "{{iteration}}": _MarkerFunctions.iteration,
         "{{requirements}}" : _MarkerFunctions.requirements,
         "{{HLRs}}" : _MarkerFunctions.HLRs,
         "{{LLRs}}" : _MarkerFunctions.LLRs,
         "{{file}}" : _MarkerFunctions.file,
-        "{{iteration}}" : _MarkerFunctions.iteration,
     }
 
     splitters = {
@@ -117,10 +124,10 @@ class Prompt(object):
         "{sendoff}" : _SplitterFunctions.sendoff,
     }
 
-    prompt = []
 
     def __init__(self, prompt:str, agent:Agent):
         self.plain_prompt = prompt
+        self.prompt = []
         self.agent = agent
         self._fill_markers()
         self._split_prompt()
@@ -144,7 +151,7 @@ class Prompt(object):
             res = min(matches, key=lambda x: x[1])
             self.plain_prompt = self.plain_prompt.replace(res[0], "",1)
             text = self.plain_prompt[0:res[1]]
-            self.prompt +=  self.splitters[res[0]](text,self.plain_prompt,self.agent)
+            self.prompt +=  self.splitters[res[0]](text,self.plain_prompt,self.agent,res[1])
             self.plain_prompt = self.plain_prompt[res[1]:]
 
 
@@ -157,4 +164,4 @@ class PromptUtils:
     @staticmethod
     def get_prompt(instance: str, prompt: str, agent: ai_agent.AIAgent) -> Prompt:
         prompt_text = ProjectUtils.get_prompt_text(instance, prompt)
-        return Prompt(prompt_text, agent)
+        return  Prompt(prompt_text, agent)

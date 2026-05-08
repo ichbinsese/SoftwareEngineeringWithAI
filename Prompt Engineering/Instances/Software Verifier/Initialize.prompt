@@ -7,10 +7,7 @@ You will check them and whenever there are errors, either regarding this documen
 
 {{file}} <Requirements\Policies\sfp.txt>
 
-If there are no findings only answer with "clear"
-
-Whenever an output is requested answer only with the output, otherwise answer only with "check", whenever you understand your task, and with "help", following with you problem whenever a problem occurs.
-
+When you got a list of low level requirements, to verify and you found no problems only answer with "clear" otherwise answer with the findings as laid out before. When you got no list of requirements, only instructions answer with check if you understood your task, and help if you have problems.
 
 {send}
 {check}

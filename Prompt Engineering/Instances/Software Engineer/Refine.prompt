@@ -1,6 +1,6 @@
 Here are the High Level Requirements you have to refine, answer with the refined requirements as plain XML as defined in the Requirements Policy
-
+Ensure that you create enough low level requirements so that a architecture design can be created from them
 {{HLRs}}
 
 {sendoff}
-{store}  <Requirements\Low Level Requirements_{{iteration}}>
+{store}  <Requirements\Low Level Requirements\Generated\Low Level Requirements_{{iteration}}<llr>.xml>

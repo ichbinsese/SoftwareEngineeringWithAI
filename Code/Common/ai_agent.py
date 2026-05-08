@@ -2,7 +2,7 @@
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from  project_utils import ProjectUtils
+from Code.Common.project_utils import ProjectUtils
 import os
 import time
 

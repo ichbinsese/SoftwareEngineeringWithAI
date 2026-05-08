@@ -1,16 +1,20 @@
 Your previous requirements were corrected
 
-{{file}} <Requirements\Low Level Requirements\Findings\Low Level Findings_{{iteration}}.xml>
+{{file}} <Requirements\Low Level Requirements\Findings\Low Level Findings_{{iteration}}<llf>.xml>
 
 Incorporate them into your previous requirements and answer with your corrected requirements
+
 
 This is the previous version of your requirements:
 {{LLRs}}
 
+and These are the High Level Requirements
+{{HLRs}}
+
 {sendoff}
-{store} <Requirements\Low Level Requirements\Generated\Low Level Requirements_{{iteration}}>
+{store} <Requirements\Low Level Requirements\Generated\Low Level Requirements_{{iteration}}<llr>.xml>
 
 Now Answer with a Answer Document detailing your Reasoning and Showing your justifications
 
 {send}
-{store} <Requirements\Low Level Requirements\Answers\Low Level Answers{{iteration}}>
+{store} <Requirements\Low Level Requirements\Answers\Low Level Answers{{iteration}}<lla>.xml>
