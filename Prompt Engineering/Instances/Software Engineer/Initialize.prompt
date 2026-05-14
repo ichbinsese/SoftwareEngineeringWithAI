@@ -5,5 +5,7 @@ Whenever an output is requested answer only with the output, otherwise answer on
 This is the Requirement Policy you have to learn:
 {{file}} <Requirements\Policies\srp.txt>
 
-{send}
+Make sure to ONLY answer with the output xml when requested
+
+{sendpers}
 {check}

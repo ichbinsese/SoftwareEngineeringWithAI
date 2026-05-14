@@ -27,7 +27,7 @@ class RequirementExporter:
             else:
                 depends_on = []
 
-            req_id = f"{level}-{category}-{int(section)}.{int(item)}"
+            req_id = f"{level}--{category}--{int(section)}.{int(item)}"
 
             requirement = {
                 "req_id": str(req_id),
@@ -58,7 +58,7 @@ class RequirementExporter:
 
             relationship_element = elementTree.SubElement(requirement_element, "Relationships")
             for dependency in requirement["depends_on"]:
-                dependency_element = elementTree.SubElement(relationship_element, "Dependency")
+                dependency_element = elementTree.SubElement(relationship_element, "DependsOn")
                 dependency_element.text = dependency
 
         rough_string = elementTree.tostring(root, 'utf-8')

@@ -1,5 +1,5 @@
-
-
+from Code.Common.project_utils import ProjectUtils
+import json
 class IterationManager:
 
     VERSION = 1
@@ -21,6 +21,10 @@ class IterationManager:
             print(f"Invalid iteration type: {iteration_type}")
             return
         IterationManager.iterations[iteration_type] += 1
+        s = json.dumps(IterationManager.iterations, indent=4)
+        ProjectUtils.write_file(f"Requirements/Iteration.json", s)
+
+
 
     @staticmethod
     def get_iteration(iteration_type:str):

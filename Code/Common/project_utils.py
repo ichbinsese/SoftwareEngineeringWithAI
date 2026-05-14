@@ -26,6 +26,9 @@ class ProjectUtils:
 
     @staticmethod
     def write_file(file_path: str, content: str, overwrite = True) -> None:
+        if content.startswith("help"):
+            print(content)
+
         mode = "w+"
         if not overwrite:
             mode = "a"

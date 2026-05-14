@@ -58,6 +58,12 @@ class _SplitterFunctions:
         ]
 
     @staticmethod
+    def sendpers(text: str, plain_text: str, agent: Agent, position: int):
+        return [
+            (_PromptFunctions.sendpers, [text, agent]),
+        ]
+
+    @staticmethod
     def check(text:str,plain_text:str,agent:Agent,position:int):
         return  [
            # ( _PromptFunctions.send ,  [text,agent]),
@@ -82,6 +88,10 @@ class _PromptFunctions:
     @staticmethod
     def send(text:str,agent:Agent):
         agent.send_message(text)
+
+    @staticmethod
+    def sendpers(text:str,agent:Agent):
+        agent.send_message_persistent(text)
 
     @staticmethod
     def check(answer_method):
@@ -122,6 +132,7 @@ class Prompt(object):
         "{store}" : _SplitterFunctions.store,
         "{send}" : _SplitterFunctions.send,
         "{sendoff}" : _SplitterFunctions.sendoff,
+        "{sendpers}" : _SplitterFunctions.sendpers,
     }
 
 
