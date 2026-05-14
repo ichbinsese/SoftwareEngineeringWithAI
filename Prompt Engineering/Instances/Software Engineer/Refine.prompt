@@ -2,5 +2,5 @@ Here are the High Level Requirements you have to refine, answer with the refined
 Ensure that you create enough low level requirements so that a architecture design can be created from them
 {{HLRs}}
 
-{sendoff}
+{send}
 {store}  <Requirements\Low Level Requirements\Generated\Low Level Requirements_{{iteration}}<llr>.xml>

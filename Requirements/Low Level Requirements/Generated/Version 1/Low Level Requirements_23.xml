@@ -1,0 +1,269 @@
+<HLRequirements version="1" hierarchy="HLR">
+  <Requirement ID="HL-EXPL-1.1">
+    <Type>FR</Type>
+    <Name>Explore Maze</Name>
+    <Content>Robot shall autonomously explore an unknown maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.2">
+    <Type>FR</Type>
+    <Name>Wall Detection</Name>
+    <Content>Robot shall detect and avoid walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.1">
+    <Type>FR</Type>
+    <Name>Create Map</Name>
+    <Content>Robot shall create an internal representation of the maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.2">
+    <Type>FR</Type>
+    <Name>Cell Classification</Name>
+    <Content>Robot shall distinguish between free, blocked, and unknown areas</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.3">
+    <Type>NFR</Type>
+    <Name>Time Constraint</Name>
+    <Content>Robot shall complete mapping of the maze within 5 minutes</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-PLAN-3.1">
+    <Type>FR</Type>
+    <Name>Path Planning</Name>
+    <Content>Robot shall compute an optimal path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.1">
+    <Type>FR</Type>
+    <Name>Return to Start</Name>
+    <Content>Robot shall return to start after the exploration is done</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.2">
+    <Type>FR</Type>
+    <Name>Second Run</Name>
+    <Content>Robot shall perform a second run after exploration</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.3">
+    <Type>FR</Type>
+    <Name>Efficient Path Execution</Name>
+    <Content>Second run shall follow the most efficient path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.1">
+    <Type>NFR</Type>
+    <Name>Collision Avoidance</Name>
+    <Content>The robot shall not collide with walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.2">
+    <Type>NFR</Type>
+    <Name>Fault Tolerance</Name>
+    <Content>The robot shall be able to handle faulty sensor data</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.1">
+    <Type>FR</Type>
+    <Name>Sensor Processing</Name>
+    <Content>The system shall be able to process sensor data defined in the sensor data interface description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.2">
+    <Type>FR</Type>
+    <Name>Actuator Control</Name>
+    <Content>The system shall be able to send control commands to actuators with commands specified in motor interface description</Content>
+    <Relationships/>
+  </Requirement>
+</HLRequirements>
+
+<LLRequirements version="1" hierarchy="LLR">
+  <Requirement ID="LL-EXPL-1.1">
+    <Type>FR</Type>
+    <Name>Exploration strategy initialization</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.1</Refines>
+    </Relationships>
+    <Content>Robot shall initialize exploration state, select an exploration strategy (wall-following or frontier-based), initialize internal map data structures, and begin collecting sensor data to support exploration.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2">
+    <Type>FR</Type>
+    <Name>Wall detection integration during exploration</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <DependsOn>LL-EXPL-1.1</DependsOn>
+    </Relationships>
+    <Content>Robot shall detect walls using available sensors (e.g., LIDAR, sonar) and integrate detections into the occupancy map to avoid collisions while exploring.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3">
+    <Type>FR</Type>
+    <Name>Real-time collision avoidance during exploration</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <DependsOn>LL-EXPL-1.2</DependsOn>
+    </Relationships>
+    <Content>Robot shall perform real-time collision avoidance by stopping, slowing, or re-planning when a potential collision is detected, ensuring a safe navigation margin.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.4">
+    <Type>FR</Type>
+    <Name>Wall detection reliability and integration</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <DependsOn>LL-EXPL-1.2</DependsOn>
+    </Relationships>
+    <Content>Robot shall reliably detect walls under varying sensor noise conditions and integrate detections into the occupancy map to support safe exploration.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1">
+    <Type>FR</Type>
+    <Name>Internal map representation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <DependsOn>LL-EXPL-1.2</DependsOn>
+      <DependsOn>LL-EXPL-1.3</DependsOn>
+    </Relationships>
+    <Content>Robot shall implement an internal map data structure (e.g., occupancy grid or graph) with coordinates, resolution, and supports for incremental updates and map queries via a defined API.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2">
+    <Type>FR</Type>
+    <Name>Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <DependsOn>LL-MAP-2.1</DependsOn>
+      <DependsOn>LL-EXPL-1.3</DependsOn>
+    </Relationships>
+    <Content>Robot shall classify cells as free, blocked, or unknown, fuse sensor data to update cell confidence, and maintain consistent occupancy information in the map.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3">
+    <Type>NFR</Type>
+    <Name>Mapping time constraint</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <DependsOn>LL-MAP-2.2</DependsOn>
+    </Relationships>
+    <Content>Mapping shall complete within 5 minutes for a standard maze; progress shall be observable via a status metric; if time is exceeded, the system shall degrade gracefully and continue mapping with best effort.</Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1">
+    <Type>FR</Type>
+    <Name>Path planning engine</Name>
+    <Content>Robot shall compute a path from the current position to the target using algorithms such as A* or D*, considering the current map state and safety constraints, and produce a sequence of waypoints.</Content>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <DependsOn>LL-MAP-2.2</DependsOn>
+      <DependsOn>LL-MAP-2.3</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.2">
+    <Type>FR</Type>
+    <Name>Path representation and validation</Name>
+    <Content>Robot shall define a data structure for paths (sequence of poses), validate planned paths against the current map, and ensure path traversability before execution.</Content>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <DependsOn>LL-PLAN-3.1</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.3">
+    <Type>FR</Type>
+    <Name>Dynamic replanning</Name>
+    <Content>Robot shall monitor for map or sensor changes and trigger replanning within a bounded time, supporting asynchronous updates and partial path handling.</Content>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <DependsOn>LL-PLAN-3.2</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1">
+    <Type>FR</Type>
+    <Name>Return to start path execution</Name>
+    <Content>Robot shall compute and execute a route back to the starting position after exploration, verify path safety, and handle interruptions or energy constraints gracefully.</Content>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <DependsOn>LL-PLAN-3.3</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.2">
+    <Type>FR</Type>
+    <Name>Second run execution</Name>
+    <Content>Robot shall perform a second exploration pass to increase map coverage, applying a potentially different exploration strategy and avoiding previously visited areas where feasible.</Content>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <DependsOn>LL-RUN-4.1</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3">
+    <Type>FR</Type>
+    <Name>Efficient path execution for second run</Name>
+    <Content>Second run shall follow the most efficient path derived from previous planning, apply path smoothing, and adapt execution if obstacles are detected.</Content>
+    <Relationships>
+      <Refines>HL-RUN-4.3</Refines>
+      <DependsOn>LL-RUN-4.2</DependsOn>
+      <DependsOn>LL-PLAN-3.3</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.1">
+    <Type>FR</Type>
+    <Name>Collision avoidance during run and exploration</Name>
+    <Content>Robot shall maintain a safe distance from walls and obstacles, apply emergency stopping if proximity exceeds safety thresholds, and log avoidance events for analysis.</Content>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <DependsOn>LL-RUN-4.3</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2">
+    <Type>NFR</Type>
+    <Name>Fault tolerance and graceful degradation</Name>
+    <Content>System shall tolerate sensor or actuator faults by validating inputs, switching to safe modes, using redundant data where available, and continuing operation with degraded performance where possible.</Content>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <DependsOn>LL-RELIAB-5.1</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1">
+    <Type>FR</Type>
+    <Name>Sensor data processing</Name>
+    <Content>System shall process sensor data according to the sensor data interface description, applying calibration, filtering, time synchronization, and producing standardized measurement sets for mapping and planning.</Content>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <DependsOn>LL-EXPL-1.2</DependsOn>
+      <DependsOn>LL-MAP-2.1</DependsOn>
+  </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2">
+    <Type>FR</Type>
+    <Name>Actuator command interface</Name>
+    <Content>System shall send control commands to actuators using the motor interface description, including command formatting, timing behavior, acknowledgment handling, and fault reporting.</Content>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <DependsOn>LL-INTERF-6.1</DependsOn>
+      <DependsOn>LL-MAP-2.1</DependsOn>
+    </Relationships>
+  </Requirement>
+
+  <Requirement ID="LL-LOC-7.1">
+    <Type>FR</Type>
+    <Name>Localization and Pose Estimation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.1</Refines>
+      <DependsOn>LL-EXPL-1.2</DependsOn>
+      <DependsOn>LL-INTERF-6.1</DependsOn>
+      <DependsOn>LL-MAP-2.1</DependsOn>
+    </Relationships>
+    <Content>Robot shall estimate its pose in the environment using sensor fusion and provide pose with uncertainty; Pose updates shall be integrated into the map and planning modules.</Content>
+  </LL-LOC-7.1>
+</Requirements>

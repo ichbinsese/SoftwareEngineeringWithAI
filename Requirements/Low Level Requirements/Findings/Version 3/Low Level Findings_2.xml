@@ -1,0 +1,98 @@
+<Findings version="1" source="LLR_Answer" source_version="1">
+  <Finding ID="LLR_Answer--1--1">
+    <ItemID>GENERAL</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The answer document from the engineer that is supposed to incorporate previous findings and provide justifications/implementations is missing. According to the provided process, an Answer document must exist and follow the specified &lt;Answer&gt; structure (with &lt;Justification&gt; / &lt;Implementation&gt; entries referencing Finding IDs). Only the updated HLR/LLR documents have been provided, so it is impossible to verify:
+      (a) whether each earlier finding was explicitly acknowledged (Justification vs. Implementation); and
+      (b) whether any Justifications are logically sound and aligned with the SRP.
+    </Description>
+    <Solution>
+      Provide the corresponding Answer XML document that responds to the previous Findings, structured as defined in the Software Findings Policy (SFP): starting with an &lt;Answer findings_version="..." findings_type="..."&gt; root and containing &lt;Justification&gt; and/or &lt;Implementation&gt; elements for each finding, including &lt;FindingID&gt; and appropriate explanations. Once available, it can be checked for correctness and consistency. If the intent was to only update the LLRs without a formal Answer, create a minimal Answer document that records these updates as &lt;Implementation&gt; items linked to the original Finding IDs.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--2">
+    <ItemID>ALL-LLR-IDs</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      None of the Low-Level Requirements in version 2 conform to the SRP 3.2 identification pattern for the &lt;ID&gt; field: &quot;{level}-{category}-{section}.{item}&quot; where {level} is HL or LL and {category} is a category code (e.g., UI). The current IDs (e.g., &quot;LL-EXPL-1.2.1&quot;, &quot;LL-MAP-2.1.3&quot;) embed functional group names (EXPL, MAP, RUN, etc.) but do not clearly separate a category code and a numeric section/item structure as specified, and in several cases have 3 dotted components rather than the single &quot;{section}.{item}&quot; required. This is a structural non-conformance to the SRP and may hinder systematic traceability and tooling.
+    </Description>
+    <Solution>
+      Rename LLR IDs to strictly follow the required pattern. For example, define categories such as:
+      - EXPL for exploration
+      - MAP for mapping
+      - PLAN for planning
+      - RUN for run control
+      - RELIAB for reliability
+      - INTERF for interfaces
+      and then apply a numeric section and item scheme, e.g.:
+      - LL-EXPL-1.1, LL-EXPL-1.2, ...
+      - LL-MAP-2.1, LL-MAP-2.2, ...
+      ensuring only one dot level ({section}.{item}) and aligning the existing logical grouping with the section numbers. Update all references (DependsOn/Refines, findings, and other documents) accordingly to preserve traceability.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--3">
+    <ItemID>Type-Tags</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The SRP specifies in section 3.3 that the type is noted in the type attribute of each &lt;Requirement&gt;, with allowed values &quot;FR&quot; or &quot;NFR&quot;. In both the HLR and LLR documents, the &lt;Requirement&gt; elements instead contain a child &lt;Type&gt; tag, and the root &lt;Requirement&gt; tag does not have a &quot;type&quot; attribute at all. Additionally, HL-EXPL-1.1 uses &quot;NFR / FR&quot; as its type, which violates the requirement that a requirement is either FR or NFR, and also contradicts the previous LLR finding that was intended to eliminate combined labels.
+    </Description>
+    <Solution>
+      Update all requirements to conform to SRP 3.3:
+      (a) Add a type attribute to each &lt;Requirement&gt;, e.g. &lt;Requirement ID="LL-EXPL-1.2.1" type="FR"&gt; and &lt;Requirement ID="LL-RELIAB-5.1.1" type="NFR"&gt;;
+      (b) Remove the inner &lt;Type&gt; child tags or keep them only as redundant documentation if allowed by process, but the canonical type must be the attribute;
+      (c) Normalize HL-EXPL-1.1 Type to a single valid value or mark it explicitly as a non-implementable example outside the normal requirement set (e.g., remove it from the HLR list, or set type="NFR" and change its content/name to clarify its purpose).
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--4">
+    <ItemID>HL-EXPL-1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      High-level requirement HL-EXPL-1.1 remains with Type &quot;NFR / FR&quot; and an &quot;Example&quot; name/content. This requirement is not a meaningful system capability, is not testable or implementable as per SRP 3.1.1, and its combined type contradicts the typing rules. There is also no corresponding LLR refining this &quot;requirement&quot;, violating SRP 3.1.1(5): &quot;High-level requirements must be refined by at least one Low-level requirement.&quot;
+    </Description>
+    <Solution>
+      Either:
+      (a) Remove HL-EXPL-1.1 from the formal HLR set and keep it as explanatory material outside the requirements hierarchy; or
+      (b) Convert HL-EXPL-1.1 into a valid NFR (e.g., &quot;The requirements specification shall use a unique type classification 'FR' or 'NFR' for each requirement&quot;) and ensure it is refined by appropriate LLR(s); and
+      (c) Ensure its type is a single valid value (e.g., type="NFR").
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--5">
+    <ItemID>LL-PLAN-3.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-PLAN-3.1.1 states that BLOCKED and UNCERTAIN cells are non-traversable in all modes and UNKNOWN cells are non-traversable for planned optimal runs, but does not explicitly state how UNKNOWN cells are treated during non-optimal, reactive collision-avoidance motion (e.g., emergency maneuvers or conservative behavior in degraded sensor modes). While LL-PLAN-3.1.2 clarifies exploration-planning use of UNKNOWN cells via frontier cells, there is still a small clarity gap regarding whether any controller is allowed to traverse UNKNOWN cells (e.g., in reactive control) or must always treat them as non-traversable except via the frontier mechanism.
+    </Description>
+    <Solution>
+      Add a brief clarifying sentence to LL-PLAN-3.1.1 or LL-PLAN-3.1.2, such as: &quot;All controllers, including reactive collision-avoidance behaviors, shall only command motion within FREE cells, and may enter UNKNOWN cells only by following paths planned according to LL-PLAN-3.1.2, thereby ensuring unknown areas are explored only via frontier-based strategies.&quot; This will remove ambiguity for architecture and controller design.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--6">
+    <ItemID>LL-RUN-4.1.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.1.2 refers to using &quot;the optimal path planning algorithm&quot; but no LLR explicitly names or identifies which concrete algorithm instance fulfills this role. LL-PLAN-3.1.4 allows &quot;a deterministic graph search algorithm, such as Dijkstra or A*&quot;. Without a clear link, it is slightly ambiguous which planning configuration (heuristics, cost parameters) is considered &quot;the&quot; optimal path planning algorithm for return and second run, which may affect architectural separation of exploration planning versus optimal-run planning.
+    </Description>
+    <Solution>
+      Either:
+      (a) Explicitly state in LL-RUN-4.1.2 that it uses the same algorithm instance defined in LL-PLAN-3.1.4 with the path-cost metric from LL-PLAN-3.1.3; or
+      (b) Introduce a new LLR that defines a named &quot;Optimal Path Planner&quot; component which implements LL-PLAN-3.1.3 and LL-PLAN-3.1.4, and reference this component from the RUN-series LLRs. This will make the architecture derivation clearer without changing behavior.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR_Answer--1--7">
+    <ItemID>LL-INTERF-6.2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.2.3 requires that motor command limits both keep the hardware safe and &quot;ensure that the chosen bounds allow the robot to achieve the mapping time constraint specified in the system configuration&quot;. However, the requirement does not specify how this feasibility is to be verified or enforced (e.g., design-time analysis, runtime check). As written, it is more of a design objective than a testable system behavior, which weakens its testability (SRP 3.1.2(8)).
+    </Description>
+    <Solution>
+      Refine LL-INTERF-6.2.3 to include a verifiable condition, for example: &quot;The system shall provide configuration validation that rejects any combination of maximum speed, acceleration bounds, and mapping time constraint that would make it impossible to traverse the maximum maze size (LL-MAP-2.1.1) within the mapping time constraint (LL-MAP-2.3.1) under nominal conditions.&quot; This permits concrete tests and design checks.
+    </Solution>
+  </Finding>
+</Findings>

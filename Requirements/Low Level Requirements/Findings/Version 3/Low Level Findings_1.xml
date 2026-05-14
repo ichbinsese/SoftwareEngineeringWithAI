@@ -1,0 +1,113 @@
+<Findings version="1" source="LLR" source_version="1">
+  <Finding ID="LLR--1--1">
+    <ItemID>LL-EXPL-1.0</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The low-level requirement LL-EXPL-1.0 imposes a constraint on how the &lt;Type&gt; tag shall be used (&quot;shall classify each requirement as either ... and shall not use combined type labels&quot;) which contradicts the existing high-level requirement HL-EXPL-1.1 that already uses &quot;NFR / FR&quot; as its type. According to SRP 2.1.1 (Refines), a low-level requirement must not contradict the high-level requirements it refines. Furthermore, LL-EXPL-1.0 attempts to redefine the requirements meta-model (typing rules) rather than specifying system behavior or properties, which makes it questionable as a system requirement from which an architecture can be designed.
+    </Description>
+    <Solution>
+      Either:
+      (a) Update HL-EXPL-1.1 to have a valid single type (e.g., NFR) and clarify in HLRs that it is purely an example/documentation item and not a system capability, and then adjust LL-EXPL-1.0 to refine this clarified HLR without contradiction; or
+      (b) Remove LL-EXPL-1.0 from the LLR set and instead document the typing rule as part of the requirements process/policy (outside the system requirements), keeping requirement artifacts free of meta-level constraints. Ensure that any remaining LLRs refine actual system-facing HLR behavior.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--2">
+    <ItemID>LL-MAP-2.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.1 requires a configurable cell size and a &quot;finite maximum grid dimension sufficient to cover the expected maze size&quot; but does not specify how the expected maze size is determined or constrained. This can lead to ambiguity for architecture design (e.g., memory allocation, data structure sizing) and makes it difficult to verify that the implementation meets the requirement. This weakens testability and implementability of the requirement.
+    </Description>
+    <Solution>
+      Constrain the maximum grid dimension more concretely, for example by referencing an external parameter or configuration range: e.g., &quot;...a finite maximum grid dimension that shall be configurable but not less than X by Y cells and not greater than Z by W cells, where default values are chosen to cover the maximum maze size specified in the system configuration.&quot; Alternatively, specify that the maximum dimension shall be derived from an externally specified &quot;maximum maze width/height&quot; parameter and state how overruns should be handled.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--3">
+    <ItemID>LL-MAP-2.1.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.3 describes updating cells &quot;intersected by sensor beams&quot; as FREE or BLOCKED but does not specify how to handle partial or probabilistic observations (e.g., sensor noise, grazing beams, overlapping beams), nor what happens when new observations conflict with existing cell classifications outside of the explicit rule in LL-MAP-2.1.4. This can leave ambiguity in the map update algorithm and may make it difficult to derive a precise architectural design for the mapping component.
+    </Description>
+    <Solution>
+      Clarify the update rule by specifying the mapping logic more concretely, for example: &quot;The system shall, for each sensor update, project the sensor beam into the grid using algorithm X (e.g., Bresenham ray casting); cells along the beam up to the detected obstacle shall be marked FREE (unless already BLOCKED), and the cell corresponding to the obstacle distance shall be marked BLOCKED (unless fault-tolerance mechanisms mark the measurement as uncertain).&quot; Optionally reference the fault-tolerance mechanism for uncertain data explicitly.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--4">
+    <ItemID>LL-MAP-2.1.4</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.4 introduces the notion of cells being &quot;marked as uncertain by a fault-tolerance mechanism&quot; but no LLR explicitly defines this fault-tolerance mechanism, how a cell becomes &quot;uncertain&quot;, or how this interacts with other cell states. This introduces an undefined concept, reducing clarity and traceability for architecture design.
+    </Description>
+    <Solution>
+      Add one or more LLRs that define the cell uncertainty mechanism, for example: (a) define an additional cell state (e.g., &quot;UNCERTAIN&quot;) and the conditions under which a cell transitions to or from this state; or (b) define a probability/confidence field and thresholds for treating a cell as effectively FREE or BLOCKED. Update LL-MAP-2.1.4 to reference these new requirements and use the formally defined concept rather than an unspecified &quot;fault-tolerance mechanism.&quot;
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--5">
+    <ItemID>LL-MAP-2.3.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.3.1 states that the system shall ensure exploration termination &quot;such that the mapping process completes within 5 minutes of timer start under nominal conditions&quot; but does not define &quot;nominal conditions&quot;. This vagueness reduces testability and may lead to differing interpretations about acceptable scenarios and performance guarantees.
+    </Description>
+    <Solution>
+      Explicitly define &quot;nominal conditions&quot;, e.g., by referencing a range of maze sizes, complexity, sensor characteristics, and hardware performance: &quot;nominal conditions shall include mazes up to N by M cells with at most K dead ends, running on the reference hardware platform specified in document X, with no sensor or actuator faults.&quot; Alternatively, replace &quot;under nominal conditions&quot; with a reference to a formally specified operational profile.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--6">
+    <ItemID>LL-MAP-2.3.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.3.2 requires limiting the combined cycle time to a configurable maximum period that &quot;supports completion of mapping within 5 minutes&quot; but does not define the relationship between the cycle period and the 5-minute constraint (e.g., allowed range or formula). As a result, it is not straightforward to verify that a chosen period setting satisfies the mapping time constraint.
+    </Description>
+    <Solution>
+      Specify either: (a) an explicit maximum allowed control loop period (e.g., &quot;shall not exceed 100 ms&quot;) justified by analysis; or (b) an equation or design rule linking maze size, robot speed, and cycle time, along with required bounds on each. This will make it possible to design and test the architecture such that the time constraint can be guaranteed or demonstrated.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--7">
+    <ItemID>LL-PLAN-3.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-PLAN-3.1.1 specifies that UNKNOWN cells are treated as non-traversable for planned optimal runs but does not state how UNKNOWN cells are treated during exploration path planning versus second-run planning. Since exploration inherently must enter UNKNOWN territory, the handling of UNKNOWN cells is different depending on mode, which impacts path-planning architecture. The requirement as written may be interpreted as applying in all contexts.
+    </Description>
+    <Solution>
+      Clarify the context of this rule by stating that it applies specifically to optimal runs and/or second-run mode, and either add a separate requirement for exploration-mode handling of UNKNOWN cells or extend LL-PLAN-3.1.1 to explicitly distinguish: e.g., &quot;During exploration mode, UNKNOWN cells adjacent to FREE cells may be treated as traversable targets, while for planned optimal runs (including second run) UNKNOWN cells shall be treated as non-traversable.&quot;
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--8">
+    <ItemID>LL-RUN-4.2.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.2.1 states that &quot;Second Run&quot; mode uses the stored maze map and planned optimal path to the target, but it does not define when or where this &quot;planned optimal path&quot; is generated or updated if the map changes between exploration completion, return to start, and second run. This leaves a gap in the refinement of HL-RUN-4.3 and HL-PLAN-3.1 for the second run and may cause ambiguities in architecture design regarding responsibility for computing and storing the second-run path.
+    </Description>
+    <Solution>
+      Add or update an LLR (e.g., extend LL-RUN-4.3.1 or LL-RUN-4.2.1) to explicitly state that immediately before or at second-run mode activation, the system shall compute (or recompute) the optimal path from start to target using the final map, and shall store this path for use in LL-RUN-4.2.1. Ensure the responsibilities (planning vs. execution) are clearly separated across LLRs.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--9">
+    <ItemID>LL-RELIAB-5.2.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RELIAB-5.2.2 specifies that, on sensor faults, the system shall &quot;either switch to a fallback sensor or exploration behavior with more conservative motion limits or shall enter a safe stop state&quot;, but does not define criteria for choosing between these options nor does it define &quot;more conservative motion limits&quot; or the properties of the &quot;safe stop state&quot;. This weakens the ability to derive a precise architecture and to verify behavior in fault scenarios.
+    </Description>
+    <Solution>
+      Refine LL-RELIAB-5.2.2 by: (a) specifying decision criteria (e.g., based on number/type of sensors remaining, fault severity, or operational mode); (b) defining or referencing LLRs that provide concrete limits for &quot;more conservative&quot; motion (e.g., percentage reductions or absolute bounds); and (c) introducing an LLR that defines &quot;safe stop state&quot; (e.g., zero velocity, brake engagement, user notification) with clear entry and exit conditions.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--10">
+    <ItemID>LL-INTERF-6.2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.2.3 constrains acceleration, deceleration, and maximum speed for safe hardware operation but does not specify how these limits interact with safety-related constraints (e.g., collision avoidance thresholds, emergency stop) or performance constraints (e.g., 5-minute mapping requirement). As a result, there may be implicit trade-offs that are not captured in requirements, complicating architecture design for motion control.
+    </Description>
+    <Solution>
+      Add clarifying text or additional LLRs linking these actuator limits to higher-level constraints; for example, state that the chosen limits shall not violate mapping-time and path-planning constraints and shall be consistent with the safety distances and emergency stop behavior. Optionally reference an external safety or performance analysis document that justifies the chosen limits.
+    </Solution>
+  </Finding>
+</Findings>

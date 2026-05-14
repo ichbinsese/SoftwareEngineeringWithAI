@@ -1,0 +1,70 @@
+<Answer findings_version="1" findings_type="LLR_Answer">
+  <Implementation>
+    <FindingID>LLR_Answer--3--1</FindingID>
+    <Explanation>
+      The Answer document structure was corrected to comply with the SFP. Specifically, each &lt;Implementation&gt; and &lt;Justification&gt; element now contains:
+      - a &lt;FindingID&gt; child, and
+      - an &lt;Explanation&gt; child,
+      instead of the previously used &lt;Content&gt; tag. The root tag &lt;Answer findings_version="1" findings_type="LLR_Answer"&gt; already used the correct attributes and was not changed. This resolves the schema/non-conformance issue described in the finding.
+    </Explanation>
+  </Implementation>
+
+  <Justification>
+    <FindingID>LLR_Answer--3--2</FindingID>
+    <Explanation>
+      The issue raised concerns HL-EXPL-1.1 in the HLR document (combined type "NFR / FR", example-style content, and lack of refinement). Modifying the HLR XML is outside the scope of the current Low-Level Requirements update, which focuses only on LLR artifacts.
+      To avoid introducing further inconsistencies while keeping the HLR file unchanged, the LLRs in version 4:
+      - Do not use any &lt;Refines&gt; relationship to HL-EXPL-1.1.
+      - Refine only the system-facing HLRs (HL-EXPL-1.2, HL-EXPL-1.3, HL-MAP-2.1, HL-MAP-2.2, HL-MAP-2.3, HL-PLAN-3.1, HL-RUN-4.1, HL-RUN-4.2, HL-RUN-4.3, HL-RELIAB-5.1, HL-RELIAB-5.2, HL-INTERF-6.1, HL-INTERF-6.2).
+      This means the LLR set itself does not contradict SRP 2.1.1 (Refines) and remains clean. However, the HLR document still contains HL-EXPL-1.1 as a structurally non-conforming entry. A separate HLR-focused findings/answer cycle is required to:
+      - Either remove HL-EXPL-1.1 from the formal HLR set; or
+      - Convert it into a proper NFR with at least one refining LLR.
+      The current justification is that this LLR Answer can only document the issue and isolate HL-EXPL-1.1 from LLR refinement; it cannot change the HLR XML itself. This should be tracked in an HLR findings document as suggested.
+    </Explanation>
+  </Justification>
+
+  <Justification>
+    <FindingID>LLR_Answer--3--3</FindingID>
+    <Explanation>
+      The previous finding classified the remaining concerns about ID semantics as minor and did not require XML changes. The LLR IDs already conform structurally to the SRP 3.2 pattern "{level}-{category}-{section}.{item}":
+      - {level}: "LL" for all LLRs.
+      - {category}: EXPL, MAP, PLAN, RUN, RELIAB, INTERF.
+      - {section}.{item}: e.g., "1.1", "2.3", etc., with exactly one dot.
+      Section semantics (e.g., section "1" for core functions, "2" for time constraints or components) are a process-level convention. To avoid further structural churn and because no tooling requirement mandates specific meanings for section numbers, no additional XML changes were made to the IDs in version 4. Instead, the intended mapping from functional groupings to section numbers will be documented in supporting process documentation, as suggested in the finding.
+    </Explanation>
+  </Justification>
+
+  <Implementation>
+    <FindingID>LLR_Answer--3--4</FindingID>
+    <Explanation>
+      The finding recommended separating path-planning semantics from controller behavior for clarity. This was implemented by splitting the earlier LL-PLAN-1.1 into two distinct requirements in LLR version 4:
+      - LL-PLAN-1.1 "Grid-Based Path Planning Cell Semantics":
+        * Focuses solely on planning semantics: paths are sequences of adjacent FREE cells, BLOCKED and UNCERTAIN cells are non-traversable in all modes, and UNKNOWN cells are non-traversable for planned optimal runs including the second run.
+      - LL-PLAN-1.2 "Controller Motion Constraints by Cell Type":
+        * Focuses on controller behavior: all controllers, including reactive collision-avoidance behaviors, shall only command motion such that the robot's footprint remains within FREE cells, and may enter UNKNOWN cells only by following paths planned according to LL-PLAN-1.3.
+      The former exploration/frontier logic was moved to LL-PLAN-1.3, which now exclusively describes how UNKNOWN cells are used as navigation targets in exploration mode. This separation:
+      - Improves clarity,
+      - Allows independent testing of planning versus controller behavior,
+      - Keeps traceability to HL-PLAN-3.1 and HL-EXPL-1.2 through separate LLRs.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--3--5</FindingID>
+    <Explanation>
+      The finding suggested optionally making the operational dependency on the Optimal Path Planner more explicit. This was implemented by enhancing LL-PLAN-2.1 in LLR version 4:
+      - LL-PLAN-2.1 now states that the Optimal Path Planner component "shall be initialized and available before any Return-to-Start or Second-Run phase is initiated".
+      - LL-RUN-1.2 ("Path Planning to Start Cell") and LL-RUN-3.1 ("Most Efficient Path Selection") retain their &lt;DependsOn&gt;LL-PLAN-2.1&lt;/DependsOn&gt; relationships, which now clearly imply not just a structural dependency but also a runtime availability expectation.
+      This gives architects explicit guidance that the planner must be constructed/initialized as part of system startup or before entering the relevant RUN phases, without over-constraining implementation details.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--3--6</FindingID>
+    <Explanation>
+      The finding noted that LL-INTERF-2.3 referenced "nominal conditions" indirectly via LL-MAP-2.1, and suggested clarifying this link. In LLR version 4:
+      - LL-INTERF-2.3 was updated to explicitly state: "... within the mapping time constraint defined in LL-MAP-2.1 under nominal conditions as defined in LL-MAP-2.1."
+      This removes ambiguity about where nominal conditions are specified and strengthens traceability between actuator configuration validation, mapping constraints, and the formal definition of nominal conditions. No further behavioral changes were made, as the requirement was already testable and consistent with LL-MAP-1.1 and LL-MAP-2.1.
+    </Explanation>
+  </Implementation>
+</Answer>

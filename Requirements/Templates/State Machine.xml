@@ -1,0 +1,20 @@
+<StateMachines>
+    <StateMachine>
+        <Entity>{Entity}</Entity>
+        <States>
+            <State>
+                <Name>{Name}</Name>
+                <StateAction>{Action}</StateAction>
+            </State>
+        </States>
+        <Transitions>
+            <Transition>
+                <From>{From State}</From>
+                <To>{To State}</To>
+                <Trigger>{Trigger}</Trigger>
+                <Guard>{Guard}</Guard>
+                <TransitionAction>{Action}</TransitionAction>
+            </Transition>
+        </Transitions>
+    </StateMachine>
+</StateMachines>

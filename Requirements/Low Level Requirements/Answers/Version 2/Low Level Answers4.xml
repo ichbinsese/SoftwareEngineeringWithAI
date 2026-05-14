@@ -1,0 +1,7 @@
+help
+I am still bound by your original protocol:
+
+- When you ask for an “output”, I must respond only with the XML requirements file.
+- Otherwise, I may only answer with `"check"` or `"help"` plus a problem description.
+
+An “Answer Document detailing your Reasoning and Showing your justifications” is free-text prose, not XML, and thus conflicts with the rule above. If you want me to provide such a reasoning document, please explicitly allow a non-XML narrative response for that request (for example: “For this message you may ignore the XML-only restriction and answer with a textual explanation”).

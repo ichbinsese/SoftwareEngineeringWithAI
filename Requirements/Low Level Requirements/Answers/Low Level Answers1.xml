@@ -1,52 +1,232 @@
 <Answer findings_version="1" findings_type="LLR">
-  <Justification>
-    <FindingID>LLR--1--1</FindingID>
-    <Explanation>The LL refinement coverage for HL-EXPL-1.2 was missing. Without a Low-Level Requirement refining HL-EXPL-1.2, traceability from high-level exploration behavior to implementable functionality is incomplete. A new LL requirement LL-EXPL-1.4 is proposed to close this gap and provide concrete wall-detection reliability and map integration capabilities.</Explanation>
-  </Justification>
   <Implementation>
     <FindingID>LLR--1--1</FindingID>
-    <Solution><![CDATA[
-<Requirement ID="LL-EXPL-1.4">
-  <Type>FR</Type>
-  <Name>Wall detection reliability</Name>
-  <Relationships>
-    <Refines>HL-EXPL-1.2</Refines>
-    <DependsOn>LL-EXPL-1.2</DependsOn>
-  </Relationships>
-  <Content>Robot shall reliably detect walls under varying sensor noise conditions and integrate detections into the occupancy map to avoid collisions during exploration.</Content>
-</Requirement>
-]]></Solution>
+    <Explanation>
+For LL-MAP-1.1.1 the exploration state machine was extended to describe responsibilities, coordinated modules, and inputs/outputs for each state. The updated requirement now:
+- Names the mission control state machine explicitly.
+- Specifies, per state, which modules are coordinated (frontier-generation, planning, motion control, second-run status).
+- Defines events and information exchanged (e.g., exploration completion, timeout, second-run status).
+Additional &lt;DependsOn&gt; relationships to LL-MAP-1.1.4, LL-PLAN-1.1.1, LL-MAP-1.3.1, LL-SCHED-1.1.1, LL-RUN-1.1.1, and LL-RUN-1.2.1 were added to make these interactions architecturally explicit.
+    </Explanation>
   </Implementation>
 
-  <Justification>
-    <FindingID>LLR--1--2</FindingID>
-    <Explanation>The High-Level Requirement HL-MAP-2.2 contains a typographical error in its Name ("Cell Clasification"). This creates inconsistency in naming across traceability, reviews, and tooling. The issue is informational/editorial and should be corrected to maintain documentation quality and traceability.</Explanation>
-  </Justification>
   <Implementation>
     <FindingID>LLR--1--2</FindingID>
-    <Solution><![CDATA[
-Rename High-Level Requirement HL-MAP-2.2 Name from "Cell Clasification" to "Cell Classification".
-Impact: Update all references to HL-MAP-2.2 in Low-Level Requirements and any tooling that consumes the HL names. No functional behavior changes required.
-]]></Solution>
+    <Explanation>
+LL-MAP-1.1.3 was updated so that it no longer repeats the literal “5 minutes” limit and no longer embeds its own time-logic. Instead:
+- It now refines HL--MAP--1.5 and depends on LL-MAP-1.5.1, referencing “the global exploration time limit defined in the time-limit requirement”.
+- The explicit wording “5 minutes” remains as a single source of truth only in LL-MAP-1.5.1.
+Thus, timing logic is centralized, avoiding redundancy and inconsistency.
+    </Explanation>
   </Implementation>
 
-  <Justification>
-    <FindingID>LLR--1--3</FindingID>
-    <Explanation>Localization and Pose Estimation capability is not explicitly covered by any Low-Level Requirement, yet it is essential to support exploration and mapping operations (pose updates influence mapping, planning, and execution). The gap could hinder architecture-level design and integration testing. A new Low-Level Requirement LL-LOC-7.1 is proposed to address this functional gap.</Explanation>
-  </Justification>
   <Implementation>
     <FindingID>LLR--1--3</FindingID>
-    <Solution><![CDATA[
-<Requirement ID="LL-LOC-7.1">
-  <Type>FR</Type>
-  <Name>Localization and Pose Estimation</Name>
-  <Relationships>
-    <Refines>HL-EXPL-1.1</Refines>
-    <DependsOn>LL-EXPL-1.2</DependsOn>
-    <DependsOn>LL-MAP-2.1</DependsOn>
-  </Relationships>
-  <Content>Robot shall estimate its pose in the environment using sensor fusion and provide pose with uncertainty; Pose updates shall be integrated into the map and planning modules; The system shall expose pose estimates with timestamp and support pose quality metrics (e.g., covariance) for downstream modules.</Content>
-</Requirement>
-]]></Solution>
+    <Explanation>
+A new requirement LL-MAP-1.3.6 “Map Completeness Criterion” was introduced, defining map completeness as “no cell and no inter-cell wall segment remains in UNKNOWN state” and mandating a boolean indication to the mission control state machine. LL-MAP-1.1.3 now depends on LL-MAP-1.3.6 and references this condition explicitly, providing a precise and testable completeness definition.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--4</FindingID>
+    <Explanation>
+A dedicated frontier generation requirement LL-MAP-1.1.6 “Frontier Generation Module” was added. It:
+- Assigns responsibility for frontier computation to a distinct module.
+- Specifies that, upon request, it returns all UNKNOWN cells that are 4-neighbors of FREE cells.
+- States that the frontier set is recomputed whenever cell classifications change from UNKNOWN.
+LL-MAP-1.1.4 remains as the higher-level behavior, while LL-MAP-1.1.6 clarifies the component boundary and interface for architecture design.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--5</FindingID>
+    <Explanation>
+LL-MAP-1.1.5 was refined to tie its heuristic explicitly to the path cost model of LL-PLAN-1.1.2 by:
+- Stating that travel-time estimation uses “the same cell-to-cell traversal cost model defined in the path optimality criterion requirement”.
+- Adding a &lt;DependsOn&gt; on LL-PLAN-1.1.2.
+It still includes an additional frontier-value term, but cost consistency with the planner is now explicit and architecturally clear.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--6</FindingID>
+    <Explanation>
+LL-MAP-1.2.1 was revised to detail the method of accounting for ±12 cm accuracy by using interval overlap: it now explicitly checks intersection of [d-12, d+12] with the expected distance interval derived from geometry. A &lt;DependsOn&gt; on LL-INTERF-2.3.1 was also added to link to the formal uncertainty model. This removes ambiguity and supports reusable interpretation logic.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--7</FindingID>
+    <Explanation>
+New pose-estimation requirements were added:
+- LL-POSE-1.1.1 defines cell-level pose estimation (cell index and heading) based on kinematics.
+- LL-POSE-1.1.2 defines sensor-based correction of pose using wall detections.
+- LL-POSE-1.1.3 defines notifications when entering a new cell center.
+LL-MAP-1.3.2 was updated to depend on LL-HARDWARE-2.1.1, LL-POSE-1.1.1, and LL-POSE-1.1.2 and to reference pose-estimation information (“when the pose-estimation module indicates that the robot is located at a cell center or during a transition”). This closes the architectural gap between odometry and mapping.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--8</FindingID>
+    <Explanation>
+LL-MAP-1.3.5 previously referenced “unless explicitly reset” without defining reset behavior. To avoid an undefined concept, the phrase was removed and the requirement now states that classifications may only change from UNKNOWN to FREE or PRESENT and not revert to UNKNOWN within a mission. Allowed transitions are further clarified in LL-MAP-1.4.1, eliminating the implicit reset behavior while preserving the static maze assumption.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--9</FindingID>
+    <Explanation>
+LL-MAP-1.4.3 was aligned with the noise-handling logic by:
+- Referencing LL-RELIAB-1.2.2 via &lt;DependsOn&gt;.
+- Replacing the vague phrase “no subsequent sensor evidence contradicts” with “no contradictory evidence, as defined by the sensor consistency-check requirement, has been accumulated”.
+LL-RELIAB-1.2.2 defines contradictory evidence in terms of N consecutive readings, so classification and noise-handling now share a common definition and remain consistent.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--10</FindingID>
+    <Explanation>
+A new requirement LL-MAP-1.5.3 “Nominal Cell Traversal Duration Parameter” was added to define how “typical traversal duration per cell” is obtained and used:
+- It introduces a configurable parameter in milliseconds for nominal cell traversal time.
+- LL-MAP-1.5.2 now depends on LL-MAP-1.5.3 and explicitly refers to this parameter when estimating remaining exploration time.
+This makes the time-awareness mechanism testable and architecturally well-defined.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--11</FindingID>
+    <Explanation>
+LL-PLAN-1.1.1 was updated to explicitly specify 4-connected grid connectivity and disallow diagonals:
+- The content now states that edges connect “orthogonally adjacent FREE cells (4-connected grid) that are not separated by PRESENT walls”.
+This aligns with other LLRs that assume 4-neighborhood and removes ambiguity regarding planner connectivity.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--12</FindingID>
+    <Explanation>
+LL-PLAN-1.1.2 was refined to clarify the traversal cost model:
+- It now states that moves have non-negative costs that “may be parameterized to distinguish straight-travel and turning penalties”.
+- LL-RUN-1.2.2 later references this cost model to configure parameters for minimal travel time in the second run.
+This defines a base cost model while allowing second-run specific parametrization, making the interaction with “fastest path” explicit.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--13</FindingID>
+    <Explanation>
+A new requirement LL-EVENT-1.1.1 “Exploration Status Events” was introduced:
+- It defines events EXPLORATION_COMPLETED and EXPLORATION_TIMEOUT, published by exploration/time-management logic.
+- LL-RUN-1.1.1 now depends on LL-EVENT-1.1.1 and explicitly states that it reacts to these events to start return path computation.
+This establishes a clear event-based interface between exploration/time management and return-to-start logic.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--14</FindingID>
+    <Explanation>
+LL-RUN-1.2.1 was adjusted to avoid mixing first-run responsibilities:
+- It no longer refines HL--RUN--1.1 and now refines HL--RUN--1.2 and HL--RUN--1.3.
+- A &lt;DependsOn&gt; on LL-RUN-1.1.1 was added to document that second-run initialization occurs after return-to-start completion.
+This preserves architectural separation between return-to-start and the second run while still capturing the required sequencing.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--15</FindingID>
+    <Explanation>
+LL-RELIAB-1.1.1 was refined to define the clearance margin explicitly:
+- It introduces a configurable margin M &gt; 0 cm relative to the 5.5 cm radius footprint.
+- It states that M shall cover worst-case pose and wall localization errors based on the ultrasonic uncertainty model, and references LL-INTERF-2.3.1 via &lt;DependsOn&gt;.
+This quantifies safety margins in terms of parameters and uncertainty, making architectural decisions on clearance and path geometry testable.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--16</FindingID>
+    <Explanation>
+LL-RELIAB-1.2.1 was updated to specify sensor sampling rate parameters:
+- It now defines a configurable rate in the range [10, 50] Hz with a default of 20 Hz and a bounded timing jitter.
+- It keeps the requirement to apply temporal filtering.
+This provides sufficient timing information to design scheduling and ensures consistency with the periodic control loop.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--17</FindingID>
+    <Explanation>
+LL-INTERF-1.1.1 was extended to define the “normalized sensor data structures”:
+- For ultrasonic data: (distance_cm, timestamp) with units in centimeters in the robot-forward frame.
+- For IR data: (left_flag, right_flag, timestamp) with binary flags and acquisition time.
+This specification clarifies fields, units, and frames and aligns the abstraction layer interface with architectural expectations.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--18</FindingID>
+    <Explanation>
+LL-INTERF-1.2.1 was refined to cover timing constraints for motor_set:
+- It now states that motor_set is invoked at a configurable control-loop frequency that does not exceed a specified maximum update rate, and ties this to the periodic control loop.
+This gives architecture designers the information needed to dimension control loops and real-time behavior while remaining configurable.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--19</FindingID>
+    <Explanation>
+New pose-estimation correction requirements were added:
+- LL-POSE-1.1.2 specifies that pose is corrected using wall detections when aligned with maze axes, rather than relying on purely open-loop odometry.
+- LL-POSE-1.1.1/1.1.3 define the open-loop base and the cell-center notifications.
+LL-HARDWARE-2.1.1 now depends on LL-INTERF-1.2.1 but remains focused on kinematics; correction responsibilities are clearly moved to LL-POSE-1.1.x, making the fusion of kinematics and sensing explicit.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--20</FindingID>
+    <Explanation>
+LL-ENV-3.1.1 was refined to specify when and how goal regions are identified:
+- It now explicitly states that identification occurs “upon completion of exploration”, and that it computes candidate goal regions at that time.
+LL-ENV-3.1.2 then selects among these candidates. Dependencies from LL-PLAN-1.1.3 and LL-RUN-1.2.2 to LL-ENV-3.1.1/3.1.2 clarify which components use this identification for second-run behavior.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--21</FindingID>
+    <Explanation>
+A new requirement LL-MAP-1.3.7 “Grid Map Access Interface” was introduced:
+- It defines query and update functions for cell and wall classifications.
+- It defines an event or callback mechanism for notifying other modules when classifications change.
+LL-PLAN-1.1.4 now depends on this interface, making map access a well-defined API and clarifying architectural boundaries between mapping, planning, and control.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--22</FindingID>
+    <Explanation>
+LL-MAP-1.4.1 was updated to constrain allowed state transitions:
+- It keeps the {UNKNOWN, FREE, BLOCKED} enumeration but now states that transitions are allowed only from UNKNOWN to FREE or UNKNOWN to BLOCKED during a mission.
+- LL-MAP-1.3.5 was updated accordingly to remove reference to reset and to be consistent with these allowed transitions.
+This resolves ambiguity about reverting to UNKNOWN and aligns with the static map assumption.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--23</FindingID>
+    <Explanation>
+LL-RUN-1.2.3 was refined and LL-HARDWARE-2.3.1 expanded:
+- LL-HARDWARE-2.3.1 now defines how the maximum safe speed is computed based on sensor sampling rate, emergency-stop threshold, and ultrasonic uncertainty (referencing LL-RELIAB-1.1.2 and LL-INTERF-2.3.1).
+- LL-RUN-1.2.3 depends on LL-HARDWARE-2.3.1 and states that second-run speeds are limited to these computed maxima.
+This provides a clear, reusable safety-speed derivation across exploration and second run.
+    </Explanation>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR--1--24</FindingID>
+    <Explanation>
+A new requirement LL-SCHED-1.1.1 “Periodic Control Loop Scheduling” was introduced:
+- It defines a periodic control loop with period T aligned with the sensor sampling rate.
+- It orders the main steps in each cycle: sensor acquisition, map update, state machine update, path computation/update, and motor command issuance.
+Relevant requirements (e.g., LL-MAP-1.1.1, LL-MAP-1.1.2, LL-POSE-1.1.1, LL-INTERF-1.2.1) now depend on LL-SCHED-1.1.1, giving architecture designers a clear runtime coordination model.
+    </Explanation>
   </Implementation>
 </Answer>

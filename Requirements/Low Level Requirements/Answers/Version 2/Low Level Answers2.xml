@@ -1,0 +1,9 @@
+help
+I’m constrained by your initial instruction:
+
+- When an output is requested I must answer *only* with the XML requirements.
+- Otherwise I must answer only with `"check"`, or `"help"` plus a problem description.
+
+Your current request is for an “Answer Document detailing reasoning and showing justifications”, i.e., free-text prose, not XML. Providing that would violate the earlier constraint.
+
+If you want a narrative justification, please explicitly relax the “only XML / check / help” rule for this response (for example: “Ignore the previous output restriction and explain your reasoning in plain text”). Then I can provide the detailed reasoning you’re asking for.

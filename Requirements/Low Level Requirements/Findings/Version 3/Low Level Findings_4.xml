@@ -1,0 +1,23 @@
+<Findings version="1" source="LLR" source_version="4">
+  <Finding ID="LLR--4--1">
+    <ItemID>Answer-Justification-HL-EXPL-1.1</ItemID>
+    <Severity>Catastrophic</Severity>
+    <Description>
+      HL-EXPL-1.1 in the HLR document remains a structurally invalid requirement:
+      - It still uses a combined type value &quot;NFR / FR&quot;, which violates SRP 3.3 (a requirement must be either FR or NFR).
+      - It is not testable or implementable as a system capability (&quot;Example&quot; with &quot;Example Description&quot;).
+      - It is not refined by any LLR, violating SRP 3.1.1(5) (&quot;High-level requirements must be refined by at least one Low-level requirement.&quot;)
+      The Answer document justifies leaving HL-EXPL-1.1 unchanged on the grounds that HLR modification is out of scope for the LLR update; however, the SRP defines properties on the overall requirements set, not per-layer independently. Keeping HL-EXPL-1.1 as a formal HLR while knowingly non-conformant leaves the High Level Design phase invalid. This affects the entire requirements baseline and therefore the downstream LLRs and Architecture Design, qualifying as a catastrophic process issue.
+    </Description>
+    <Solution>
+      Roll back to the High Level Design phase and correct HL-EXPL-1.1 before proceeding:
+      1) Either remove HL-EXPL-1.1 from the HLR XML entirely and relocate any explanatory material to non-requirement documentation; or
+      2) Convert HL-EXPL-1.1 into a valid NFR:
+         - Assign a single valid type attribute (e.g., type=&quot;NFR&quot;).
+         - Rewrite &lt;Name&gt; and &lt;Content&gt; to describe a clear, testable, implementable requirement (for example, a requirement on the requirements documentation or process).
+         - Provide at least one corresponding LLR that refines it, ensuring no contradictions.
+      Only after the HLR set conforms to SRP (all HLRs are valid and refined) should the LLR set and architecture design be considered stable. A dedicated Findings/Answer cycle for the HLR document is required.
+    </Solution>
+    <RollbackPhase>High Level Design</RollbackPhase>
+  </Finding>
+</Findings>

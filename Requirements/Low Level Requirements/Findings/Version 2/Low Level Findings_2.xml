@@ -1,0 +1,118 @@
+<Findings version="1" source="LLR" source_version="2">
+  <Finding ID="LLR--2--1">
+    <ItemID>LL-EXPL-1.2.0.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      LL-EXPL-1.2.0.1 defines transitions between IDLE, EXPLORE, RETURN_TO_START, and SECOND_RUN but does not specify transitions out of RETURN_TO_START in abnormal cases (e.g., failure to reach the start pose within a configured timeout, or path planning failure) nor transitions back to IDLE when exploration is aborted due to severe faults or safe-stop conditions. This leaves the state machine behavior incomplete for error and abort scenarios, which is needed for consistent architecture design.
+    </Description>
+    <Solution>
+      Add one or more LLRs under the EXPL/RUN/RELIAB categories to define:
+      (a) transitions to an explicit aborted/idle state when RETURN_TO_START cannot be completed (e.g., timeout, unreachable start), and
+      (b) how the state machine behaves when safe-stop or severe fault conditions occur (e.g., remain effectively in a HALTED sub-state of the current state, or transition to IDLE after reset).
+      Reference these from LL-EXPL-1.2.0.1 with appropriate &lt;DependsOn&gt; relationships.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--2">
+    <ItemID>LL-MAP-2.1.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.1.1 requires support for mazes of at least 16x16 cells but does not state whether larger mazes may be supported or whether 16x16 is an upper bound. This creates ambiguity for architecture sizing (memory allocation, coordinate limits) and for test coverage.
+    </Description>
+    <Solution>
+      Clarify LL-MAP-2.1.1.1 to explicitly state whether 16x16 is a minimum supported size (with no specified upper bound) or both a minimum and maximum for the supported maze. If there is a maximum, specify it; if not, state that larger mazes may be supported but are not required.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--3">
+    <ItemID>LL-MAP-2.1.1.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.1.2 specifies a fixed physical cell size of 18 cm ± 2 cm. This tolerance is relatively large and might cause inconsistencies between mapping and planning versus physical maze dimensions; moreover, the LLR does not state how the tolerance is guaranteed (e.g., calibration, configuration) or how deviations are handled. This may complicate verification and conformance tests.
+    </Description>
+    <Solution>
+      Either reduce the allowed tolerance to a value that is known to be compatible with the physical maze rules, or add an additional LLR describing calibration or configuration steps that ensure the effective cell size lies within the stated tolerance, including how violations are detected and handled.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--4">
+    <ItemID>LL-MAP-2.3.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.3.2 requires a monotonic system clock with a resolution of at most 10 ms but does not specify any bounds on clock drift or accuracy over the 5-minute mapping period. For some architectures, large drift could undermine compliance with the 5-minute constraint while still satisfying the resolution requirement.
+    </Description>
+    <Solution>
+      Add an LLR specifying acceptable clock drift or accuracy over at least 5 minutes (e.g., maximum allowable error), or explicitly state that external time accuracy guarantees are assumed and describe them.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--5">
+    <ItemID>LL-PLAN-3.1.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-PLAN-3.1.3 states that the system shall use “a complete shortest-path search algorithm, such as A* or Dijkstra’s Algorithm,” but does not specify how ties in path length are broken when multiple optimal paths exist. This can lead to different but still “optimal” paths across implementations, which may complicate integration and testing of “most efficient path” behavior in HL-RUN-4.3.
+    </Description>
+    <Solution>
+      Extend LL-PLAN-3.1.3 or add a new LLR to define a deterministic tie-breaking strategy (e.g., prefer paths that are lexicographically minimal in terms of move sequence, or prefer certain directions in a fixed order) so that architecture and tests can rely on predictable behavior.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--6">
+    <ItemID>LL-RUN-4.2.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.2.2 requires selecting a predefined target cell “based on configuration or competition rules” but does not specify how that configuration is represented, validated, or linked to the grid (e.g., as coordinates or a named role). This leaves degrees of freedom that can lead to inconsistent architectures and test setups.
+    </Description>
+    <Solution>
+      Add a dedicated LLR under RUN or MAP that defines the representation of the target cell (e.g., fixed grid coordinates, index, or a configurable parameter) and any validation rules (e.g., must be a FREE cell when SECOND_RUN starts). Reference it from LL-RUN-4.2.2 via &lt;DependsOn&gt;.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--7">
+    <ItemID>LL-RUN-4.3.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.3.3 defines completion based on a “configured position and orientation tolerance” but does not specify allowable ranges or units for these tolerances, nor how they are configured. This can hinder testability and consistent architecture choices.
+    </Description>
+    <Solution>
+      Add an LLR specifying:
+      (a) the units and valid ranges for the position and orientation tolerances;
+      (b) how these tolerances are configured (e.g., configuration parameters); and
+      (c) the frame of reference in which the tolerances are applied (e.g., map frame).
+      Reference that requirement from LL-RUN-4.3.3 with &lt;DependsOn&gt;.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--8">
+    <ItemID>LL-RELIAB-5.2.5</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RELIAB-5.2.5 defines critical sensors as all sensors providing wall distance, obstacle detection, or odometry data but does not explicitly tie these to the sensor identifiers or types defined in the sensor interface (LL-INTERF-6.1.4). This may leave ambiguity as to which concrete sensors or message types are considered critical.
+    </Description>
+    <Solution>
+      Extend LL-RELIAB-5.2.5 or add a new LLR to map the abstract critical sensor roles to specific sensor identifiers or categories as defined in LL-INTERF-6.1.4 (e.g., by specifying which sensor IDs or types must be treated as critical).
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--9">
+    <ItemID>LL-INTERF-6.2.5</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.2.5 states that the motor interface shall guarantee that applied motor speeds achieve commanded velocities “within a bounded response time suitable for 20 Hz control updates” but does not quantify this bound. This makes it difficult to design and verify the control architecture against a concrete timing requirement.
+    </Description>
+    <Solution>
+      Refine LL-INTERF-6.2.5 to specify a numeric upper bound for the response time (e.g., &lt;= one or two control cycles, such as 50–100 ms), or add a new LLR that defines this bound and reference it from LL-INTERF-6.2.5.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--2--10">
+    <ItemID>LL-EXPL-1.2.0</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.2.0 specifies that transitions between states are based on “exploration progress and completion of path execution” but does not define what constitutes completion of path execution at LLR level (e.g., tolerance to target, handling of interruptions). LL-RUN-4.3.3 covers completion for SECOND_RUN, but there is no explicit LLR for completion of RETURN_TO_START or generic path execution success criteria.
+    </Description>
+    <Solution>
+      Add LLRs that define generic “path execution completion” conditions (position/orientation tolerances, handling of minor deviations, and interaction with collision avoidance) for RETURN_TO_START and exploration moves, and link LL-EXPL-1.2.0 and LL-EXPL-1.2.0.1 to them via &lt;DependsOn&gt;.
+    </Solution>
+  </Finding>
+</Findings>

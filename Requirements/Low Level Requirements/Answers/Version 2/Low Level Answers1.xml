@@ -1,0 +1,10 @@
+help
+The process requires me to respond only with either:
+
+- `"check"` when I understand my task, or  
+- `"help"` (with a problem description) when an issue occurs, or  
+- the pure XML requirements output when explicitly requested.
+
+Your last instruction asks for a prose “Answer Document detailing reasoning and justifications”. Providing that narrative would violate the constraint to output only the XML when an output is requested and otherwise just `"check"`.
+
+Please clarify whether you want to temporarily relax the “ONLY answer with the output xml when requested” rule so I can provide a textual reasoning document, or whether the intent is to keep responses restricted and not provide such a narrative.

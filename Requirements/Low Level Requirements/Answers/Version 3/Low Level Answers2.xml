@@ -1,0 +1,86 @@
+<Answer findings_version="1" findings_type="LLR_Answer">
+  <Implementation>
+    <FindingID>LLR_Answer--1--1</FindingID>
+    <Content>
+      An explicit Answer document has been created in accordance with the expected &lt;Answer&gt; structure. For each prior finding, either an &lt;Implementation&gt; or &lt;Justification&gt; element has been added, referencing the original Finding ID and describing how the Low-Level Requirements (LLR) set (version 3) was updated or why no change was required. This document itself fulfils the requirement to provide a formal Answer artifact responding to the earlier Findings.
+    </Content>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--1--2</FindingID>
+    <Content>
+      All Low-Level Requirement IDs were renamed to conform to the SRP 3.2 identification pattern “{level}-{category}-{section}.{item}”. Specifically:
+      - {level} is “LL” for all Low-Level Requirements.
+      - {category} was derived from the functional grouping:
+        EXPL (exploration), MAP (mapping), PLAN (planning), RUN (run control), RELIAB (reliability), INTERF (interfaces).
+      - {section}.{item} now uses a single dotted structure:
+        * Exploration: LL-EXPL-1.1 to LL-EXPL-1.5 (exploration mode) and LL-EXPL-2.1 to LL-EXPL-2.5 (wall detection/avoidance).
+        * Mapping: LL-MAP-1.1 to LL-MAP-1.6 (map structure and update) and LL-MAP-2.1 to LL-MAP-2.2 (time constraints).
+        * Planning: LL-PLAN-1.1 to LL-PLAN-1.6 (core planning functions) and LL-PLAN-2.1 (Optimal Path Planner component).
+        * Run control: LL-RUN-1.1 to LL-RUN-1.3 (return to start), LL-RUN-2.1 to LL-RUN-2.2 (second run activation), LL-RUN-3.1 to LL-RUN-3.3 (efficient path execution and target definition).
+        * Reliability: LL-RELIAB-1.1 (collision invariant) and LL-RELIAB-2.1 to LL-RELIAB-2.4 (fault tolerance).
+        * Interfaces: LL-INTERF-1.1 to LL-INTERF-1.3 (sensors) and LL-INTERF-2.1 to LL-INTERF-2.4 (actuators).
+      All internal references (DependsOn, Refines) in the LLR_v3 document were updated to the new IDs where applicable. No Refines or DependsOn relationships now point to obsolete identifiers.
+    </Content>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--1--3</FindingID>
+    <Content>
+      The handling of requirement types was updated to comply with SRP 3.3:
+      - Each &lt;Requirement&gt; element in the LLR document now includes a “type” attribute with value “FR” or “NFR” (e.g., &lt;Requirement ID="LL-EXPL-1.1" type="FR"&gt;).
+      - The former child &lt;Type&gt; tags were removed entirely from the LLR document, making the attribute the single source of truth for the requirement type.
+      - For High-Level Requirements, the correction of HL-EXPL-1.1 (combined “NFR / FR” type) has not yet been executed in the HLR document itself, because that document was provided as input and not to be modified here. Instead, the conflict was addressed via Finding LLR_Answer--1--4 (see below) and will require a separate HLR revision. The LLR set in version 3 does not refine HL-EXPL-1.1 and thus avoids contradicting its invalid combined type.
+    </Content>
+  </Implementation>
+
+  <Justification>
+    <FindingID>LLR_Answer--1--4</FindingID>
+    <Content>
+      HL-EXPL-1.1 is clearly an example requirement, not a real system capability. Modifying the HLR document is outside the scope of the current LLR update; however, the Low-Level Requirements now deliberately do not define any Refines relationship to HL-EXPL-1.1, thereby avoiding contradictions.
+      This means:
+      - All real system-facing HLRs (HL-EXPL-1.2, HL-EXPL-1.3, HL-MAP-2.1, HL-MAP-2.2, HL-MAP-2.3, HL-PLAN-3.1, HL-RUN-4.1, HL-RUN-4.2, HL-RUN-4.3, HL-RELIAB-5.1, HL-RELIAB-5.2, HL-INTERF-6.1, HL-INTERF-6.2) are refined by at least one LLR in version 3.
+      - HL-EXPL-1.1 remains effectively unrefined and should be removed or reclassified in a dedicated HLR revision step, as suggested in the earlier finding.
+      The justification for not introducing LLRs that refine HL-EXPL-1.1 is that such LLRs would not correspond to implementable and testable system behavior, and would blur the separation between specification meta-rules and product requirements. Instead, HL-EXPL-1.1 should be handled in the requirements process documentation, not in the system LLR set.
+    </Content>
+  </Justification>
+
+  <Implementation>
+    <FindingID>LLR_Answer--1--5</FindingID>
+    <Content>
+      Clarification of UNKNOWN cell handling for all controllers, including reactive controllers, was implemented by updating LL-PLAN-1.1:
+      - LL-PLAN-1.1 now states that the system treats BLOCKED and UNCERTAIN cells as non-traversable in all modes and UNKNOWN cells as non-traversable for planned optimal runs including the second run.
+      - An additional sentence was added: “all controllers, including reactive collision-avoidance behaviors, shall only command motion within FREE cells and may enter UNKNOWN cells only by following paths planned according to LL-PLAN-1.2.”
+      - LL-PLAN-1.2 defines how UNKNOWN cells are explored, i.e., via frontier-based paths using FREE cells to frontier cells adjacent to UNKNOWN cells.
+      This removes the remaining ambiguity by ensuring that no controller is allowed to move into UNKNOWN cells arbitrarily; they may only be entered via paths that have been planned under the exploration rules.
+    </Content>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--1--6</FindingID>
+    <Content>
+      To unambiguously define “the optimal path planning algorithm” used by return-to-start and second-run logic:
+      - A new requirement LL-PLAN-2.1 “Optimal Path Planner Component” was introduced. It defines an Optimal Path Planner component that:
+        * Implements the path optimality criterion defined in LL-PLAN-1.3.
+        * Implements the deterministic shortest path algorithm defined in LL-PLAN-1.4.
+      - LL-RUN-1.2 (“Path Planning to Start Cell”) was updated to explicitly reference this component via a DependsOn relationship:
+        * &lt;DependsOn&gt;LL-PLAN-2.1&lt;/DependsOn&gt; and content specifying that the return-to-start path shall be computed using the Optimal Path Planner component.
+      - LL-RUN-3.1 (“Most Efficient Path Selection” for the second run) was updated similarly to depend on LL-PLAN-2.1 and explicitly state that the second-run path is computed using the Optimal Path Planner component.
+      This cleanly separates the definition of the planner (LL-PLAN-2.1) from its use in run-control requirements (LL-RUN-1.2 and LL-RUN-3.1), and clarifies which configuration of algorithm and cost metric must be used for “optimal” runs.
+    </Content>
+  </Implementation>
+
+  <Implementation>
+    <FindingID>LLR_Answer--1--7</FindingID>
+    <Content>
+      LL-INTERF-2.3 (“Motor Command Limits”) was refined to make the performance/safety constraint verifiable:
+      - The updated requirement now states that the system shall enforce bounds on acceleration, deceleration, and maximum speed so that motor commands stay within safe hardware limits, AND that:
+        * “the system shall provide configuration validation that rejects any combination of maximum speed, acceleration bounds, and mapping time constraint that would make it impossible to traverse the maximum maze size defined in LL-MAP-1.1 within the mapping time constraint defined in LL-MAP-2.1 under nominal conditions.”
+      - This ties the actuator configuration explicitly to:
+        * The maximum maze dimensions (LL-MAP-1.1).
+        * The mapping time constraint (LL-MAP-2.1 / HL-MAP-2.3).
+      - Because the requirement demands a configuration validation step that either accepts or rejects configurations, it becomes testable: an architecture must include a validation function that, given maze size, speed/acceleration limits, and mapping time, decides whether the combination is feasible.
+      This converts the previous “design objective” into a concrete, checkable behavior of the system’s configuration subsystem.
+    </Content>
+  </Implementation>
+</Answer>

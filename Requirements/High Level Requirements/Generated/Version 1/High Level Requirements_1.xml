@@ -1,0 +1,81 @@
+<?xml version="1.0" ?>
+<Requirements version="1" hierarchy="HLR">
+  <Requirement ID="HL-EXPL-1.1">
+    <Type>FR</Type>
+    <Name>Explore Maze</Name>
+    <Content>Robot shall autonomously explore an unknown maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.2">
+    <Type>FR</Type>
+    <Name>Wall Detection</Name>
+    <Content>Robot shall detect and avoid walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.1">
+    <Type>FR</Type>
+    <Name>Create Map</Name>
+    <Content>Robot shall create an internal representation of the maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.2">
+    <Type>FR</Type>
+    <Name>Cell Clasification</Name>
+    <Content>Robot shall distinguish between free, blocked, and unknown areas</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.3">
+    <Type>NFR</Type>
+    <Name>Time Constraint</Name>
+    <Content>Robot shall complete mapping of the maze within 5 minutes</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-PLAN-3.1">
+    <Type>FR</Type>
+    <Name>Path Planning</Name>
+    <Content>Robot shall compute an optimal path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.1">
+    <Type>FR</Type>
+    <Name>Return to Start</Name>
+    <Content>Robot shall return to start after the exploration is done</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.2">
+    <Type>FR</Type>
+    <Name>Second Run</Name>
+    <Content>Robot shall perform a second run after exploration</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.3">
+    <Type>FR</Type>
+    <Name>Efficient Path Execution</Name>
+    <Content>Second run shall follow the most efficient path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.1">
+    <Type>NFR</Type>
+    <Name>Collision Avoidance</Name>
+    <Content>The robot shall not collide with walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.2">
+    <Type>NFR</Type>
+    <Name>Fault Tolerance</Name>
+    <Content>The robot shall be able to handle faulty sensor data</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.1">
+    <Type>FR</Type>
+    <Name>Sensor Processing</Name>
+    <Content>The system shall be able to process sensor data defined in the sensor data interface description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.2">
+    <Type>FR</Type>
+    <Name>Actuator Control</Name>
+    <Content>The system shall be able to send control commands to actuators with commands specified in motor interface description</Content>
+    <Relationships/>
+  </Requirement>
+</Requirements>

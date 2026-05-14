@@ -1,0 +1,56 @@
+<Findings version="1" source="LLR" source_version="4">
+  <Finding ID="LLR--4--1">
+    <ItemID>LL-EXPL-1.2.0</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.2.0 and LL-EXPL-1.2.0.1 define state transitions based on PATH_COMPLETED and PATH_ABORTED signals but do not define behavior if neither signal is ever raised (e.g., due to a defect in path execution logic) or if both are erroneously raised for the same path. While this is partly an implementation fault scenario, the lack of any requirement for handling inconsistent or missing status signals leaves a small gap in the robustness of the state machine specification.
+    </Description>
+    <Solution>
+      Add an LLR under RUN or RELIAB specifying how the system behaves if no PATH_COMPLETED or PATH_ABORTED is received within a bounded time after starting path execution, and optionally how conflicting signals are handled (e.g., treat PATH_ABORTED as dominant), and reference it with &lt;DependsOn&gt; from LL-EXPL-1.2.0.1 and LL-RUN-4.1.3.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--4--2">
+    <ItemID>LL-RUN-4.1.7</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.1.7 defines failure of forward progress as the Euclidean distance to the target not decreasing by at least 1 cm over an interval equal to the timeout duration, but does not explicitly state how sensor noise or oscillations around the threshold are handled. Small noisy fluctuations could lead to frequent, unintended aborts in some implementations, making behavior non-robust.
+    </Description>
+    <Solution>
+      Refine LL-RUN-4.1.7 to specify whether the 1 cm threshold is evaluated using filtered distance estimates (e.g., averaged or low-pass filtered) and/or allow a small hysteresis band to avoid chattering around the threshold, so that the criterion is robust against measurement noise.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--4--3">
+    <ItemID>LL-RELIAB-5.2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RELIAB-5.2.3 states that in degraded mode the robot "restricts motion to previously mapped FREE cells" and "continues to update the internal map for cells along the traversed paths" while treating all UNKNOWN cells as non-traversable targets. It is not fully clear whether path planning may still include UNKNOWN cells as intermediate cells if they are incidentally observed along the way, or whether UNKNOWN must be strictly avoided at planning time. This ambiguity could lead to differing degraded mode behaviors between implementations.
+    </Description>
+    <Solution>
+      Clarify LL-RELIAB-5.2.3 to state explicitly whether path planners in degraded mode are allowed to plan through UNKNOWN cells that become FREE as the robot moves or must only use cells already classified FREE at planning time, and describe how reclassification during motion affects allowed next steps.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--4--4">
+    <ItemID>LL-MAP-2.1.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.1.1 requires support for mazes of "at least 16 cells by 16 cells" with no upper bound, while LL-MAP-2.1.1.4 defines a generic indexing convention. For architecture design, this leaves memory and performance sizing entirely open-ended above 16x16, which may complicate deriving concrete hardware/software constraints from the LLR set.
+    </Description>
+    <Solution>
+      Optionally add an NFR specifying an upper bound (or a recommended design point) for maze size to guide architecture sizing (e.g., 16x16 required, up to 32x32 recommended), or clearly state in LL-MAP-2.1.1.1 that only 16x16 is assumed for sizing and larger mazes, while permitted, are out of scope for performance guarantees.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--4--5">
+    <ItemID>LL-INTERF-6.1.5</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.1.5 constrains both sensor processing and actuator command output to a common configurable range of 20–100 Hz with ±5 ms jitter. However, LL-MAP-2.3.4 and LL-MAP-2.3.2 assume adequate timing for the 5-minute budget; combining tight jitter bounds with potentially high frequencies (up to 100 Hz) may be challenging on low-resource platforms. There is no explicit non-functional requirement tying these timing constraints to CPU or resource limits, which could lead to infeasible architectures on some target hardware.
+    </Description>
+    <Solution>
+      Consider adding an NFR under RELIAB or INTERF specifying minimal hardware performance assumptions or acceptable CPU utilization bounds for the required timing (e.g., that the system shall meet the 20–100 Hz and jitter constraints under specified load conditions), so architecture design can be validated against explicit platform assumptions.
+    </Solution>
+  </Finding>
+</Findings>

@@ -1,166 +1,707 @@
 <Requirements version="1" hierarchy="LLR">
-  <Requirement ID="LL-EXPL-1.1">
+  <!-- LLRs refining HL--MAP--1.1 Explore Maze -->
+  <Requirement ID="LL-MAP-1.1.1">
     <Type>FR</Type>
-    <Name>Exploration strategy initialization</Name>
+    <Name>Exploration State Machine</Name>
     <Relationships>
-      <Refines>HL-EXPL-1.1</Refines>
+      <Refines>HL--MAP--1.1</Refines>
     </Relationships>
-    <Content>Robot shall initialize exploration state, select an exploration strategy (wall-following or frontier-based), initialize internal map data structures, and begin collecting sensor data to support exploration.</Content>
+    <Content>
+The software shall implement a top-level exploration state machine with at least the states {IDLE, EXPLORE, RETURN_TO_START, SECOND_RUN, COMPLETED} and deterministic transitions between them, such that in the EXPLORE state the robot autonomously explores the unknown maze until a stop condition is met.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-EXPL-1.2">
+  <Requirement ID="LL-MAP-1.1.2">
     <Type>FR</Type>
-    <Name>Wall detection integration during exploration</Name>
+    <Name>Exploration Start Condition</Name>
     <Relationships>
-      <Refines>HL-EXPL-1.1</Refines>
-      <DependsOn>LL-EXPL-1.1</DependsOn>
+      <Refines>HL--MAP--1.1</Refines>
     </Relationships>
-    <Content>Robot shall detect walls using available sensors (e.g., LIDAR, sonar) and integrate detections into the occupancy map to avoid collisions while exploring.</Content>
+    <Content>
+The software shall enter the EXPLORE state automatically on system startup after completion of all initialization routines and successful acquisition of at least one valid set of sensor measurements.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-EXPL-1.3">
+  <Requirement ID="LL-MAP-1.1.3">
     <Type>FR</Type>
-    <Name>Real-time collision avoidance during exploration</Name>
+    <Name>Exploration Stop Condition</Name>
     <Relationships>
-      <Refines>HL-EXPL-1.1</Refines>
-      <DependsOn>LL-EXPL-1.2</DependsOn>
+      <Refines>HL--MAP--1.1</Refines>
+      <Refines>HL--ENV--2.1</Refines>
     </Relationships>
-    <Content>Robot shall perform real-time collision avoidance by stopping, slowing, or re-planning when a potential collision is detected, ensuring a safe navigation margin.</Content>
+    <Content>
+The software shall terminate the EXPLORE state and initiate RETURN_TO_START when the internal map contains a classification (free or blocked) for every cell and inter-cell wall location of the 4x8 maze grid, or when the global exploration time limit of 5 minutes is reached, whichever occurs first.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-MAP-2.1">
+  <Requirement ID="LL-MAP-1.1.4">
     <Type>FR</Type>
-    <Name>Internal map representation</Name>
+    <Name>Frontier-Based Exploration</Name>
     <Relationships>
-      <Refines>HL-MAP-2.1</Refines>
-      <DependsOn>LL-EXPL-1.2</DependsOn>
-      <DependsOn>LL-EXPL-1.3</DependsOn>
+      <Refines>HL--MAP--1.1</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--MAP--1.4</Refines>
     </Relationships>
-    <Content>Robot shall implement an internal map data structure (e.g., occupancy grid or graph) with coordinates, resolution, and supports for incremental updates and map queries via a defined API.</Content>
+    <Content>
+The software shall implement a frontier-based exploration strategy in the EXPLORE state, selecting as navigation targets cells that are currently classified as unknown but are adjacent (in the 4-neighborhood) to at least one free cell in the internal map.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-MAP-2.2">
+  <Requirement ID="LL-MAP-1.1.5">
     <Type>FR</Type>
-    <Name>Cell classification and update</Name>
+    <Name>Exploration Target Selection Heuristic</Name>
     <Relationships>
-      <Refines>HL-MAP-2.2</Refines>
-      <DependsOn>LL-MAP-2.1</DependsOn>
-      <DependsOn>LL-EXPL-1.3</DependsOn>
+      <Refines>HL--MAP--1.1</Refines>
+      <Refines>HL--MAP--1.5</Refines>
+      <Refines>HL--PLAN--1.1</Refines>
     </Relationships>
-    <Content>Robot shall classify cells as free, blocked, or unknown, fuse sensor data to update cell confidence, and maintain consistent occupancy information in the map.</Content>
+    <Content>
+The software shall prioritize exploration frontier targets using a heuristic that minimizes an estimate of travel time (e.g., shortest path length in cells) from the current cell to the frontier while preferring frontiers that increase the number of newly observable cells, in order to reduce overall exploration time within the 5 minute limit.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-MAP-2.3">
+  <!-- LLRs refining HL--MAP--1.2 Wall Detection -->
+  <Requirement ID="LL-MAP-1.2.1">
+    <Type>FR</Type>
+    <Name>Front Wall Detection From Ultrasonic</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--INTERF--2.1</Refines>
+      <Refines>HL--INTERF--2.2</Refines>
+      <Refines>HL--INTERF--2.3</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall interpret a front ultrasonic distance measurement as a front wall in the current maze cell if, after accounting for ±12 cm sensor accuracy, the measured distance range overlaps the expected distance from the robot center to a cell boundary wall based on the 17.2 cm cell size and 11 cm robot diameter.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.2.2">
+    <Type>FR</Type>
+    <Name>Side Wall Detection From IR</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--INTERF--3.1</Refines>
+      <Refines>HL--INTERF--3.2</Refines>
+      <Refines>HL--INTERF--3.3</Refines>
+      <Refines>HL--INTERF--3.4</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall interpret an active obstacle indication from a left or right infrared sensor as a wall located along the corresponding side of the current maze cell if the robot’s pose is aligned to the maze axes within a configurable angular tolerance not exceeding 10 degrees.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.2.3">
+    <Type>FR</Type>
+    <Name>Wall Proximity Thresholding</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--INTERF--2.3</Refines>
+      <Refines>HL--RELIAB--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall apply configurable numeric thresholds and hysteresis to raw ultrasonic distance measurements to distinguish between free space and wall presence, such that single-sample noise or transient spikes do not cause flip-flopping between wall and free classifications.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.2.4">
+    <Type>FR</Type>
+    <Name>Wall Avoidance Maneuvers</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+      <Refines>HL--INTERF--1.2</Refines>
+      <Refines>HL--HARDWARE--2.1</Refines>
+    </Relationships>
+    <Content>
+The software shall command motor speeds to execute avoidance maneuvers (e.g., stop and turn, or arc turns) when front or side wall detections indicate that the predicted robot trajectory would intersect a wall within one cell length, thereby preventing collisions while maintaining progress toward exploration or path-planning goals.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--MAP--1.3 Create Map -->
+  <Requirement ID="LL-MAP-1.3.1">
+    <Type>FR</Type>
+    <Name>Grid Map Data Structure</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--ENV--1.1</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+      <Refines>HL--ENV--1.3</Refines>
+      <Refines>HL--ENV--1.4</Refines>
+    </Relationships>
+    <Content>
+The software shall maintain an in-memory grid map data structure representing the 4x8 maze, where each cell and each inter-cell wall segment is explicitly stored with its classification and can be addressed by integer coordinates (row, column) aligned with the assumed physical maze geometry.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.3.2">
+    <Type>FR</Type>
+    <Name>Cell and Wall Update From Sensors</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--MAP--1.4</Refines>
+      <Refines>HL--INTERF--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall update the grid map cells and wall segments based on processed ultrasonic and infrared measurements obtained while the robot is located in a cell center or during cell transitions, marking corresponding walls as blocked or free and updating adjacent cells as free if traversed without collision.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.3.3">
+    <Type>FR</Type>
+    <Name>Unknown Initialization</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--MAP--1.4</Refines>
+    </Relationships>
+    <Content>
+The software shall initialize all cells and wall segments in the 4x8 grid map to an unknown classification at system startup prior to any sensor-based observations.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.3.4">
+    <Type>FR</Type>
+    <Name>Start Cell Initialization</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--MAP--1.4</Refines>
+      <Refines>HL--RUN--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall designate a fixed coordinate in the grid map as the start cell at initialization, set its classification to free, and maintain a record of this coordinate for use in return-to-start and second-run behaviors.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.3.5">
+    <Type>FR</Type>
+    <Name>Static Map Assumption</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--ENV--2.1</Refines>
+    </Relationships>
+    <Content>
+The software shall treat once-observed wall and free classifications in the grid map as immutable for the duration of a mission, unless explicitly reset, thereby implementing the assumption of a static maze environment.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--MAP--1.4 Cell Classification -->
+  <Requirement ID="LL-MAP-1.4.1">
+    <Type>FR</Type>
+    <Name>Cell Classification Enumeration</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.4</Refines>
+    </Relationships>
+    <Content>
+The software shall represent each maze cell’s state using an enumeration with at least the values {UNKNOWN, FREE, BLOCKED}, and shall ensure that each cell in the grid map is always in exactly one of these states.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.4.2">
+    <Type>FR</Type>
+    <Name>Wall Segment Classification Enumeration</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.4</Refines>
+      <Refines>HL--ENV--1.3</Refines>
+      <Refines>HL--ENV--1.4</Refines>
+    </Relationships>
+    <Content>
+The software shall represent each wall segment between adjacent cells using an enumeration with at least the values {UNKNOWN, PRESENT, ABSENT}, and shall update these values as observations confirm or refute the presence of physical walls of approximately 1.6 cm thickness.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.4.3">
+    <Type>FR</Type>
+    <Name>Free Cell Confirmation</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.4</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--RELIAB--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall mark a cell as FREE when the robot has successfully traversed into the cell without detecting a collision or blocking wall on the entry face, and no subsequent sensor evidence contradicts the free classification.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-1.4.4">
+    <Type>FR</Type>
+    <Name>Blocked Cell Inference</Name>
+    <Relationships>
+      <Refines>HL--MAP--1.4</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall mark a neighboring cell as BLOCKED if a wall segment between the current cell and that neighbor is classified as PRESENT, and shall never issue movement commands that attempt to enter a cell classified as BLOCKED.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--MAP--1.5 Time Constraint -->
+  <Requirement ID="LL-MAP-1.5.1">
     <Type>NFR</Type>
-    <Name>Mapping time constraint</Name>
+    <Name>Global Mapping Time Limit</Name>
     <Relationships>
-      <Refines>HL-MAP-2.3</Refines>
-      <DependsOn>LL-MAP-2.2</DependsOn>
+      <Refines>HL--MAP--1.5</Refines>
     </Relationships>
-    <Content>Mapping shall complete within 5 minutes for a standard maze; progress shall be observable via a status metric; if time is exceeded, the system shall degrade gracefully and continue mapping with best effort.</Content>
+    <Content>
+The software shall enforce a global time limit of 5 minutes from the start of exploration, after which it shall cease further exploration moves and initiate RETURN_TO_START, regardless of mapping completeness.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-PLAN-3.1">
-    <Type>FR</Type>
-    <Name>Path planning engine</Name>
-    <Relationships>
-      <Refines>HL-PLAN-3.1</Refines>
-      <DependsOn>LL-MAP-2.2</DependsOn>
-      <DependsOn>LL-MAP-2.3</DependsOn>
-    </Relationships>
-    <Content>Robot shall compute a path from the current position to the target using algorithms such as A* or D*, considering the current map state and safety constraints, and produce a sequence of waypoints.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-PLAN-3.2">
-    <Type>FR</Type>
-    <Name>Path representation and validation</Name>
-    <Relationships>
-      <Refines>HL-PLAN-3.1</Refines>
-      <DependsOn>LL-PLAN-3.1</DependsOn>
-    </Relationships>
-    <Content>Robot shall define a data structure for paths (sequence of poses), validate planned paths against the current map, and ensure path traversability before execution.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-PLAN-3.3">
-    <Type>FR</Type>
-    <Name>Dynamic replanning</Name>
-    <Relationships>
-      <Refines>HL-PLAN-3.1</Refines>
-      <DependsOn>LL-PLAN-3.2</DependsOn>
-    </Relationships>
-    <Content>Robot shall monitor for map or sensor changes and trigger replanning within a bounded time, supporting asynchronous updates and partial path handling.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-RUN-4.1">
-    <Type>FR</Type>
-    <Name>Return to start path execution</Name>
-    <Relationships>
-      <Refines>HL-RUN-4.1</Refines>
-      <DependsOn>LL-PLAN-3.3</DependsOn>
-    </Relationships>
-    <Content>Robot shall compute and execute a route back to the starting position after exploration, verify path safety, and handle interruptions or energy constraints gracefully.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-RUN-4.2">
-    <Type>FR</Type>
-    <Name>Second run execution</Name>
-    <Relationships>
-      <Refines>HL-RUN-4.2</Refines>
-      <DependsOn>LL-RUN-4.1</DependsOn>
-    </Relationships>
-    <Content>Robot shall perform a second exploration pass to increase map coverage, applying a potentially different exploration strategy and avoiding previously visited areas where feasible.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-RUN-4.3">
-    <Type>FR</Type>
-    <Name>Efficient path execution for second run</Name>
-    <Relationships>
-      <Refines>HL-RUN-4.3</Refines>
-      <DependsOn>LL-RUN-4.2</DependsOn>
-      <DependsOn>LL-PLAN-3.3</DependsOn>
-    </Relationships>
-    <Content>Second run shall follow the most efficient path derived from previous planning, apply path smoothing, and adapt execution if obstacles are detected.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-RELIAB-5.1">
-    <Type>FR</Type>
-    <Name>Collision avoidance during run and exploration</Name>
-    <Relationships>
-      <Refines>HL-RELIAB-5.1</Refines>
-      <DependsOn>LL-RUN-4.3</DependsOn>
-    </Relationships>
-    <Content>Robot shall maintain a safe distance from walls and obstacles, apply emergency stopping if proximity exceeds safety thresholds, and log avoidance events for analysis.</Content>
-  </Requirement>
-
-  <Requirement ID="LL-RELIAB-5.2">
+  <Requirement ID="LL-MAP-1.5.2">
     <Type>NFR</Type>
-    <Name>Fault tolerance and graceful degradation</Name>
+    <Name>Time-Aware Planning</Name>
     <Relationships>
-      <Refines>HL-RELIAB-5.2</Refines>
-      <DependsOn>LL-RELIAB-5.1</DependsOn>
+      <Refines>HL--MAP--1.5</Refines>
+      <Refines>HL--PLAN--1.1</Refines>
     </Relationships>
-    <Content>System shall tolerate sensor or actuator faults by validating inputs, switching to safe modes, using redundant data where available, and continuing operation with degraded performance where possible.</Content>
+    <Content>
+The software shall estimate remaining exploration time based on elapsed time and typical traversal duration per cell and shall avoid selecting exploration targets that cannot be reasonably reached and mapped before the 5 minute limit.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-INTERF-6.1">
+  <!-- LLRs refining HL--PLAN--1.1 Path Planning -->
+  <Requirement ID="LL-PLAN-1.1.1">
     <Type>FR</Type>
-    <Name>Sensor data processing</Name>
+    <Name>Cell-Based Path Planner</Name>
     <Relationships>
-      <Refines>HL-INTERF-6.1</Refines>
-      <DependsOn>LL-EXPL-1.2</DependsOn>
-      <DependsOn>LL-MAP-2.1</DependsOn>
+      <Refines>HL--PLAN--1.1</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+      <Refines>HL--MAP--1.4</Refines>
     </Relationships>
-    <Content>System shall process sensor data according to the sensor data interface description, applying calibration, filtering, time synchronization, and producing standardized measurement sets for mapping and planning.</Content>
+    <Content>
+The software shall implement a cell-based path planning algorithm (such as Dijkstra or A*) operating on the 4x8 grid map, where nodes correspond to FREE cells and edges connect adjacent FREE cells not separated by PRESENT walls.
+    </Content>
   </Requirement>
 
-  <Requirement ID="LL-INTERF-6.2">
+  <Requirement ID="LL-PLAN-1.1.2">
     <Type>FR</Type>
-    <Name>Actuator command interface</Name>
+    <Name>Path Optimality Criterion</Name>
     <Relationships>
-      <Refines>HL-INTERF-6.2</Refines>
-      <DependsOn>LL-INTERF-6.1</DependsOn>
-      <DependsOn>LL-MAP-2.1</DependsOn>
+      <Refines>HL--PLAN--1.1</Refines>
     </Relationships>
-    <Content>System shall send control commands to actuators using the motor interface description, including command formatting, timing behavior, acknowledgment handling, and fault reporting.</Content>
+    <Content>
+The software shall define path optimality as minimizing total traversal cost, where each move between adjacent FREE cells has a non-negative cost, and shall compute paths that minimize the sum of such costs between a given start and goal region.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-1.1.3">
+    <Type>FR</Type>
+    <Name>Goal Region Handling</Name>
+    <Relationships>
+      <Refines>HL--PLAN--1.1</Refines>
+      <Refines>HL--ENV--3.1</Refines>
+    </Relationships>
+    <Content>
+The software shall treat the 2x2 goal region as a set of up to four FREE goal cells and shall compute an optimal path from a given start cell to any of these goal cells, selecting the path with minimal traversal cost.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-1.1.4">
+    <Type>FR</Type>
+    <Name>Replanning Capability</Name>
+    <Relationships>
+      <Refines>HL--PLAN--1.1</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+    </Relationships>
+    <Content>
+The software shall recompute planned paths whenever newly acquired map information marks previously assumed FREE cells or ABSENT walls as BLOCKED or PRESENT, and the current path would otherwise traverse blocked cells or walls.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-1.1.5">
+    <Type>FR</Type>
+    <Name>Planning Failure Reporting</Name>
+    <Relationships>
+      <Refines>HL--PLAN--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall detect and signal a planning failure when no path exists between the current cell and the desired target or goal region in the current map, so that higher-level logic can report failure or select alternative behavior.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--RUN--1.1 Return to Start -->
+  <Requirement ID="LL-RUN-1.1.1">
+    <Type>FR</Type>
+    <Name>Return Path Computation</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.1</Refines>
+      <Refines>HL--PLAN--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall, upon completion of exploration or timeout, compute a path from the robot’s current cell to the designated start cell using the path planning algorithm and current grid map.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-1.1.2">
+    <Type>FR</Type>
+    <Name>Return Path Execution</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.1</Refines>
+      <Refines>HL--INTERF--1.2</Refines>
+      <Refines>HL--HARDWARE--2.1</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall execute the computed return path cell by cell by issuing motor speed commands that move the robot between cell centers while monitoring sensors to avoid collisions and replanning if the path becomes invalid.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--RUN--1.2 Second Run and HL--RUN--1.3 Efficient Path Execution -->
+  <Requirement ID="LL-RUN-1.2.1">
+    <Type>FR</Type>
+    <Name>Second Run Initialization</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.2</Refines>
+      <Refines>HL--RUN--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall initiate the SECOND_RUN state after the robot has returned to the start cell and the exploration phase has been declared complete.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-1.2.2">
+    <Type>FR</Type>
+    <Name>Fastest Path Computation</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.2</Refines>
+      <Refines>HL--RUN--1.3</Refines>
+      <Refines>HL--PLAN--1.1</Refines>
+      <Refines>HL--ENV--3.1</Refines>
+    </Relationships>
+    <Content>
+The software shall compute the fastest path from the start cell to the goal region using the current grid map and the path planner, where the traversal cost model is chosen to approximate minimal physical travel time for the second run.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-1.2.3">
+    <Type>FR</Type>
+    <Name>Fast Path Motion Profile</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.3</Refines>
+      <Refines>HL--HARDWARE--2.1</Refines>
+      <Refines>HL--HARDWARE--2.3</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall execute the fastest path using motor speed commands that increase translational speed relative to exploration while still respecting configured maximum speeds that prevent loss of wall detection and collisions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-1.2.4">
+    <Type>FR</Type>
+    <Name>Second Run Success Criteria</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.2</Refines>
+      <Refines>HL--ENV--3.1</Refines>
+    </Relationships>
+    <Content>
+The software shall declare the second run a success when the robot reaches any FREE cell in the 2x2 goal region following the fastest path without any detected collision; otherwise it shall declare the second run a failure.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-1.2.5">
+    <Type>FR</Type>
+    <Name>Second Run Status Reporting</Name>
+    <Relationships>
+      <Refines>HL--RUN--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall provide a boolean or enumerated status output indicating success or failure of the second run upon completion or abort of the SECOND_RUN state.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--RELIAB--1.1 Collision Avoidance -->
+  <Requirement ID="LL-RELIAB-1.1.1">
+    <Type>NFR</Type>
+    <Name>Minimum Wall Clearance</Name>
+    <Relationships>
+      <Refines>HL--RELIAB--1.1</Refines>
+      <Refines>HL--HARDWARE--1.1</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall ensure that planned and executed trajectories maintain a minimum clearance margin between the robot’s circular footprint (11 cm diameter) and any wall, such that the robot body does not intersect walls when following ideal commands.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-1.1.2">
+    <Type>NFR</Type>
+    <Name>Emergency Stop on Imminent Collision</Name>
+    <Relationships>
+      <Refines>HL--RELIAB--1.1</Refines>
+      <Refines>HL--INTERF--1.2</Refines>
+      <Refines>HL--INTERF--2.1</Refines>
+      <Refines>HL--INTERF--3.1</Refines>
+    </Relationships>
+    <Content>
+The software shall immediately command both motors to speed 0 if sensor data indicates an obstacle or wall within a configurable emergency distance threshold shorter than the nominal stopping distance, and shall not resume movement until a safe trajectory is available.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--RELIAB--1.2 Sensor Noise Handling -->
+  <Requirement ID="LL-RELIAB-1.2.1">
+    <Type>NFR</Type>
+    <Name>Sensor Sampling and Filtering</Name>
+    <Relationships>
+      <Refines>HL--RELIAB--1.2</Refines>
+      <Refines>HL--INTERF--1.1</Refines>
+      <Refines>HL--INTERF--2.3</Refines>
+    </Relationships>
+    <Content>
+The software shall sample ultrasonic and infrared sensors at a fixed rate and apply temporal filtering (e.g., moving average or median filter) to reduce the effect of random noise before using the data for wall detection or planning decisions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-1.2.2">
+    <Type>NFR</Type>
+    <Name>Consistency Checks on Sensor Data</Name>
+    <Relationships>
+      <Refines>HL--RELIAB--1.2</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+    </Relationships>
+    <Content>
+The software shall compare new sensor-based wall observations against existing map entries and shall treat large, isolated discrepancies as potential sensor errors, requiring multiple consistent observations before changing an established wall classification.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--INTERF--1.1 Sensor Processing -->
+  <Requirement ID="LL-INTERF-1.1.1">
+    <Type>FR</Type>
+    <Name>Sensor Abstraction Layer</Name>
+    <Relationships>
+      <Refines>HL--INTERF--1.1</Refines>
+      <Refines>HL--INTERF--2.1</Refines>
+      <Refines>HL--INTERF--3.1</Refines>
+    </Relationships>
+    <Content>
+The software shall implement a sensor abstraction layer that wraps the ultrasonic_get_distance and infrared_get_dsl_status/infrared_get_dsr_status functions and exposes normalized sensor data structures to higher-level modules.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-1.1.2">
+    <Type>FR</Type>
+    <Name>Invalid Sensor Reading Handling</Name>
+    <Relationships>
+      <Refines>HL--INTERF--1.1</Refines>
+      <Refines>HL--RELIAB--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall detect invalid or out-of-range sensor return values (e.g., negative distances, saturation codes) and shall ignore or replace them with safe default estimates rather than using them directly for mapping or control.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--INTERF--1.2 Actuator Control -->
+  <Requirement ID="LL-INTERF-1.2.1">
+    <Type>FR</Type>
+    <Name>Motor Command Interface</Name>
+    <Relationships>
+      <Refines>HL--INTERF--1.2</Refines>
+      <Refines>HL--HARDWARE--2.1</Refines>
+    </Relationships>
+    <Content>
+The software shall control the differential drive motors exclusively via the function motor_set(uint8_t left_speed, uint8_t right_speed), using integer speed values in the range [0,100] for each motor.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-1.2.2">
+    <Type>FR</Type>
+    <Name>Speed Command Rate Limiting</Name>
+    <Relationships>
+      <Refines>HL--INTERF--1.2</Refines>
+      <Refines>HL--HARDWARE--2.3</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall limit the rate of change of successive motor_set speed commands to avoid abrupt accelerations or decelerations that could cause slippage or loss of control.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--INTERF--2.1, 2.2, 2.3 Ultrasonic -->
+  <Requirement ID="LL-INTERF-2.1.1">
+    <Type>FR</Type>
+    <Name>Ultrasonic Distance Acquisition</Name>
+    <Relationships>
+      <Refines>HL--INTERF--2.1</Refines>
+      <Refines>HL--INTERF--2.2</Refines>
+    </Relationships>
+    <Content>
+The software shall periodically call ultrasonic_get_distance() and interpret the returned float value as the distance in centimeters to the nearest front obstacle along the sensor beam.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-2.3.1">
+    <Type>NFR</Type>
+    <Name>Ultrasonic Uncertainty Model</Name>
+    <Relationships>
+      <Refines>HL--INTERF--2.3</Refines>
+      <Refines>HL--RELIAB--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall model each ultrasonic distance measurement as having an uncertainty of at least ±12 cm and shall incorporate this uncertainty into wall distance and collision risk computations.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--INTERF--3.x IR sensors -->
+  <Requirement ID="LL-INTERF-3.1.1">
+    <Type>FR</Type>
+    <Name>IR Status Acquisition</Name>
+    <Relationships>
+      <Refines>HL--INTERF--3.1</Refines>
+      <Refines>HL--INTERF--3.2</Refines>
+    </Relationships>
+    <Content>
+The software shall periodically call infrared_get_dsl_status() and infrared_get_dsr_status() and interpret each returned uint8_t value as a binary obstacle detection flag for the respective left and right infrared sensors.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-3.3.1">
+    <Type>FR</Type>
+    <Name>IR Effective Range Assumption</Name>
+    <Relationships>
+      <Refines>HL--INTERF--3.3</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall assume that a positive obstacle indication from an infrared sensor corresponds to an obstacle located approximately 4 cm from the sensor along its measurement direction and shall use this distance when inferring side wall positions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-3.4.1">
+    <Type>FR</Type>
+    <Name>IR Orientation Compensation</Name>
+    <Relationships>
+      <Refines>HL--INTERF--3.4</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall account for the approximately 25 degree mounting angle of each infrared sensor relative to the robot front direction when transforming infrared detections into equivalent lateral wall distances and positions in the maze frame.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--HARDWARE--1.1 Robot Shape -->
+  <Requirement ID="LL-HARDWARE-1.1.1">
+    <Type>FR</Type>
+    <Name>Robot Footprint Model</Name>
+    <Relationships>
+      <Refines>HL--HARDWARE--1.1</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall model the robot as a circle of radius 5.5 cm when checking for possible collisions with walls located at cell boundaries spaced approximately 17.2 cm apart.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--HARDWARE--2.1 Differential Drive -->
+  <Requirement ID="LL-HARDWARE-2.1.1">
+    <Type>FR</Type>
+    <Name>Differential Drive Kinematics</Name>
+    <Relationships>
+      <Refines>HL--HARDWARE--2.1</Refines>
+      <Refines>HL--HARDWARE--2.2</Refines>
+      <Refines>HL--HARDWARE--2.3</Refines>
+    </Relationships>
+    <Content>
+The software shall implement kinematic equations for a differential drive robot to estimate changes in robot orientation and position based on the left and right motor speed commands over time, without assuming constant rotational speed.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-HARDWARE-2.1.2">
+    <Type>FR</Type>
+    <Name>Cell-Center Motion Primitives</Name>
+    <Relationships>
+      <Refines>HL--HARDWARE--2.1</Refines>
+      <Refines>HL--ENV--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall provide motion primitives that move the robot from one maze cell center to an adjacent cell center and turn in place to discrete headings aligned with maze axes, using sequences of motor_set commands.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--HARDWARE--2.3 Translational Velocity -->
+  <Requirement ID="LL-HARDWARE-2.3.1">
+    <Type>NFR</Type>
+    <Name>Speed Limitation for Safety</Name>
+    <Relationships>
+      <Refines>HL--HARDWARE--2.3</Refines>
+      <Refines>HL--RELIAB--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall constrain the commanded motor speeds such that the resulting translational speed does not exceed a configured maximum below the 200 cm/s hardware capability, chosen so that the robot can safely stop before a wall given worst-case sensor latency and noise.
+    </Content>
+  </Requirement>
+
+  <!-- LLRs refining HL--ENV--1.x Maze properties -->
+  <Requirement ID="LL-ENV-1.1.1">
+    <Type>FR</Type>
+    <Name>Grid Coordinate System</Name>
+    <Relationships>
+      <Refines>HL--ENV--1.1</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+    </Relationships>
+    <Content>
+The software shall define a grid coordinate system with 4 rows and 8 columns for the maze, with a consistent convention for mapping physical positions to cell indices (e.g., row 0, column 0 at the start cell).
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-ENV-1.2.1">
+    <Type>FR</Type>
+    <Name>Cell Geometry Parameters</Name>
+    <Relationships>
+      <Refines>HL--ENV--1.2</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+    </Relationships>
+    <Content>
+The software shall use the approximate cell dimension of 17.2 cm when transforming between traveled distance estimates and transitions between maze cell centers.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-ENV-1.3.1">
+    <Type>FR</Type>
+    <Name>Wall Geometry Parameters</Name>
+    <Relationships>
+      <Refines>HL--ENV--1.3</Refines>
+      <Refines>HL--MAP--1.2</Refines>
+    </Relationships>
+    <Content>
+The software shall use an approximate wall thickness of 1.6 cm when reasoning about the physical extent of walls relative to the robot footprint in collision checks.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-ENV-1.4.1">
+    <Type>FR</Type>
+    <Name>Inter-Cell Wall Indexing</Name>
+    <Relationships>
+      <Refines>HL--ENV--1.4</Refines>
+      <Refines>HL--MAP--1.3</Refines>
+    </Relationships>
+    <Content>
+The software shall index possible wall positions as boundaries between horizontally and vertically adjacent cells and store wall presence or absence for each such boundary in the grid map.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-ENV-3.1.1">
+    <Type>FR</Type>
+    <Name>Goal Region Identification</Name>
+    <Relationships>
+      <Refines>HL--ENV--3.1</Refines>
+      <Refines>HL--MAP--1.4</Refines>
+    </Relationships>
+    <Content>
+The software shall identify the goal region as any contiguous 2x2 block of cells that are all classified as FREE and reachable from the start cell in the grid map.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-ENV-3.1.2">
+    <Type>FR</Type>
+    <Name>Goal Region Selection</Name>
+    <Relationships>
+      <Refines>HL--ENV--3.1</Refines>
+      <Refines>HL--PLAN--1.1</Refines>
+    </Relationships>
+    <Content>
+The software shall, when multiple 2x2 FREE regions exist, select as the maze goal region the one that minimizes the optimal path cost from the start cell according to the chosen path cost metric.
+    </Content>
   </Requirement>
 </Requirements>

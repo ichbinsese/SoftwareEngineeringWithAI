@@ -1,0 +1,78 @@
+<Findings version="1" source="LLR" source_version="3">
+  <Finding ID="LLR--3--1">
+    <ItemID>LL-EXPL-1.2.0</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.2.0 describes transitions based on "completion or abort of path execution as defined by the path execution completion and abort conditions" and depends on LL-RUN-4.1.4 and LL-RUN-4.1.5, but those referenced requirements do not define how their conditions are exposed to the state machine (e.g., event, flag, or status). This leaves a small ambiguity for architecture about the signaling mechanism from path execution logic to the state machine.
+    </Description>
+    <Solution>
+      Extend LL-RUN-4.1.4 and/or LL-RUN-4.1.5, or introduce an additional LLR, to specify that completion and abort conditions are communicated via explicit status or events (for example, PATH_COMPLETED and PATH_ABORTED signals) which the exploration state machine shall consume when deciding transitions, then reference this from LL-EXPL-1.2.0 and LL-EXPL-1.2.0.1 with &lt;DependsOn&gt;.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--2">
+    <ItemID>LL-RUN-4.1.5</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RUN-4.1.5 introduces an abort condition when "the robot fails to make forward progress toward the target for a configurable timeout duration" but does not define how "forward progress toward the target" is measured (e.g., along-path distance reduction, Euclidean distance, minimum threshold per time unit). This can lead to inconsistent implementations and makes test criteria unclear.
+    </Description>
+    <Solution>
+      Add a new LLR (or refine LL-RUN-4.1.5) that defines "forward progress" quantitatively, including the metric used (e.g., decrease in distance in the map frame), minimum progress threshold, and the duration over which lack of progress is evaluated, and reference it where needed via &lt;DependsOn&gt;.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--3">
+    <ItemID>LL-MAP-2.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.1.1 and LL-MAP-2.1.1.1 together specify a 2D grid with minimum 16x16 cells, but they do not explicitly state how grid indices are ordered or which index corresponds to rows vs. columns. Since LL-PLAN-3.1.7 defines a lexicographic ordering on "row index first and then column index", lack of an explicit convention here could cause inconsistent interpretations between components.
+    </Description>
+    <Solution>
+      Amend LL-MAP-2.1.1 or add a closely related LLR clarifying the indexing convention for grid cells (e.g., first index is row, increasing in y-direction; second index is column, increasing in x-direction), and ensure LL-PLAN-3.1.7 is interpreted consistently with this convention.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--4">
+    <ItemID>LL-INTERF-6.1.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.1.3 requires processing sensor data at a configurable rate of "at least 20 Hz", and LL-EXPL-1.3.4 and LL-INTERF-6.2.2 also use "at least 20 Hz" wording for update rates. However, no upper bound or jitter constraints are given. Extremely high or highly variable processing rates could stress architecture design (CPU, bus) and complicate real-time guarantees.
+    </Description>
+    <Solution>
+      Add one or more LLRs specifying acceptable ranges and jitter bounds for sensor and actuator update rates (e.g., nominal 20–100 Hz with maximum allowed jitter), to give architecture design clear performance envelopes and improve testability.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--5">
+    <ItemID>LL-EXPL-1.3.4</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.3.4 states that wall-related sensor data and avoidance decisions shall be updated at "a fixed rate of at least 20 Hz" but does not define how this interacts with the general sensor processing rate in LL-INTERF-6.1.3 (which is also "at least 20 Hz"). Without an explicit relationship, it is unclear whether wall detection must be synchronized to the general processing clock or may run on a separate schedule, which impacts architecture of scheduling and threading.
+    </Description>
+    <Solution>
+      Clarify whether wall detection runs on the same periodic schedule as the general sensor processing loop (LL-INTERF-6.1.3) or define a separate scheduling requirement, including any allowed skew, and add appropriate &lt;DependsOn&gt; links between LL-EXPL-1.3.4 and LL-INTERF-6.1.3.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--6">
+    <ItemID>LL-RELIAB-5.2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RELIAB-5.2.3 specifies that in degraded mode the system "restricts motion to previously mapped FREE cells only" but does not state whether NEW cells may be mapped or whether the map may continue to update in degraded mode. This affects mapping and planning architecture (whether exploration/mapping continues) and test expectations.
+    </Description>
+    <Solution>
+      Refine LL-RELIAB-5.2.3 or add a companion LLR to define whether mapping updates are still applied in degraded mode and whether exploration of as-yet-UNKNOWN cells is allowed, and how planners should treat UNKNOWN cells while in degraded mode.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--3--7">
+    <ItemID>LL-MAP-2.3.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.3.1 enforces a 5-minute budget "for mapping the maze" from the transition to EXPLORE until exploration termination, but the requirements do not state whether the robot is allowed to continue moving (e.g., RETURN_TO_START) after the budget is exceeded before the timeout handling of LL-MAP-2.3.3 is applied. While LL-MAP-2.3.3 describes behavior at timeout, the precise point when mapping is considered "complete" versus "terminated due to timeout" is slightly underspecified from a test perspective.
+    </Description>
+    <Solution>
+      Add a short clarification either in LL-MAP-2.3.1 or LL-MAP-2.3.3 that explicitly states that mapping activity is considered terminated at the instant the timeout condition is detected, triggering the behavior of LL-MAP-2.3.3, and that mapping updates do not continue after this point.
+    </Solution>
+  </Finding>
+</Findings>

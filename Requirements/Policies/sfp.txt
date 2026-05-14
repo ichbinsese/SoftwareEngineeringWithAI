@@ -33,6 +33,7 @@ Finding Template
         <Severity> {Severity} </Severity>
         <Description> {Description} </Description>
         <Solution> {Solution} </Solution>
+        <RollbackPhase> {Optional: Rollback Phase}</RollbackPhase>
     </Finding>
 </Findings>
 
@@ -57,6 +58,7 @@ Severity
     b. "Low Level Design"
     c. "Architecture Design"
     d. "Implementation"
+
 
 
 Answer Document Structure

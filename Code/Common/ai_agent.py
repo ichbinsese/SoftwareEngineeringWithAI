@@ -24,17 +24,16 @@ class _AgentLogger:
 
 
 class AIAgent:
-    responses = []
-
-    chat_history = []
-
-    identifier = ""
 
     def __init__(self,behaviour:str=None,identifier:str = None,model:str = None):
         load_dotenv()
+        self.responses = []
+        self.chat_priority_history = []
+        self.chat_history = []
         self.api_key = os.getenv('API_KEY')
         if behaviour is not None:
             self.chat_history.append( {"role": "system", "content": behaviour} )
+            self.chat_priority_history.append( 1 )
         if identifier is None:
             self.identifier = "Default Name"
         else:
@@ -43,14 +42,29 @@ class AIAgent:
             self.model = "gpt-5-nano"
         else:
             self.model = model
+        self.kept_messages = 1
+
         self.client = OpenAI(
-            api_key=self.api_key
+            api_key=self.api_key,
         )
         self.logger = _AgentLogger(self)
 
-    def _send_message(self, message:str):
+    def _send_message(self, message:str,priority:int = 0):
         self.logger.log_sent_message(message)
         self.chat_history.append({"role": "user", "content": message})
+        self.chat_priority_history.append(priority)
+
+
+        if (len(self.chat_priority_history) - sum(self.chat_priority_history)) > 10:
+            i = self.kept_messages
+            while True:
+                if self.chat_priority_history[i] == 0:
+                    self.chat_priority_history.pop(i)
+                    self.chat_history.pop(i)
+                    self.kept_messages = i
+                    break
+                else:
+                    i += 1
         print("Message sent")
         response = self.client.chat.completions.create(
             model=self.model,
@@ -64,6 +78,10 @@ class AIAgent:
 
     def send_message(self, message:str):
         response = self._send_message(message)
+        self.chat_history.append({"role": "assistant", "content": response})
+
+    def send_message_persistent(self,message:str):
+        response = self._send_message(message,1)
         self.chat_history.append({"role": "assistant", "content": response})
 
     def send_message_no_reply(self,message:str):

@@ -1,0 +1,122 @@
+<Findings version="1" source="LLR" source_version="1">
+  <Finding ID="LLR--1--1">
+    <ItemID>LL-EXPL-1.1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The related high-level requirement HL-EXPL-1.1 is typed as "NFR / FR", which violates SRP 3.3 (type must be FR or NFR only). While LL-EXPL-1.1.1 correctly enforces a pure type, it effectively contradicts the current HLR typing and cannot be consistently implemented unless HL-EXPL-1.1 is fixed.
+    </Description>
+    <Solution>
+      Change the &lt;Type&gt; of HL-EXPL-1.1 from "NFR / FR" to a single valid value ("FR" or "NFR"), and if needed split it into two separate HLRs so that LL-EXPL-1.1.1 no longer contradicts the HLR layer but refines it consistently.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--2">
+    <ItemID>LL-EXPL-1.2.0</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      LL-EXPL-1.2.0 introduces an ERROR state in the exploration state machine, but no high-level requirement mentions error handling or fault states. This adds behavior (generic ERROR state semantics) that is not traceable to any HLR, violating SRP 2.1.2(5).
+    </Description>
+    <Solution>
+      Either (a) add one or more HLRs describing error/fault states and transitions so that the ERROR state behavior is traceable and then add appropriate &lt;Refines&gt; tags to LL-EXPL-1.2.0, or (b) constrain LL-EXPL-1.2.0 to describe only states and transitions that are clearly covered by existing HLRs (e.g., remove or narrow the ERROR state to behavior already captured under HL-RELIAB-5.x).
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--3">
+    <ItemID>LL-MAP-2.1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      HL-MAP-2.1 requires creation of an internal representation of the maze, but orientation, size limits, and resolution of the grid are not specified at either HLR or LLR level. LL-MAP-2.1.1 and related LLRs define a grid but do not constrain these design-relevant parameters, leaving ambiguity for architecture and test design (e.g., maximum maze dimensions, cell size).
+    </Description>
+    <Solution>
+      Add one or more LLRs under the MAP category specifying at least: (a) the maximum maze dimensions that must be supported, and (b) the mapping between physical distances and grid cell resolution (e.g., cell size in cm). Optionally align this explicitly with competition rules if applicable.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--4">
+    <ItemID>LL-EXPL-1.2.2</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      Several LLRs (e.g., LL-EXPL-1.2.2, LL-PLAN-3.1.3, LL-RUN-4.3.1) rely on the notion of a "reachable" target cell, but there is no LLR that defines reachability criteria (connectivity, allowed moves, handling of dynamic obstacles). This introduces ambiguity and may lead to inconsistent architecture interpretations.
+    </Description>
+    <Solution>
+      Introduce a dedicated LLR (e.g., under PLAN or MAP) that defines "reachable cell" precisely, including connectivity model (4- or 8-connected grid), allowed traversal constraints, and relation to FREE/BLOCKED cells, and reference it via &lt;DependsOn&gt; from requirements that use the term.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--5">
+    <ItemID>LL-MAP-2.3.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-MAP-2.3.1 enforces a hard 5-minute mapping time budget and refers to "exploration start", but there is no explicit linkage to a precise start event or signal in the LLRs; LL-EXPL-1.2.1 defines an EXPLORE state entry condition but does not explicitly define "exploration start time" for timing purposes. This can cause ambiguity in timing measurements and tests.
+    </Description>
+    <Solution>
+      Clarify in LL-MAP-2.3.1 (or in a new LLR it depends on) that the elapsed 5-minute mapping time is measured from the transition into the EXPLORE state as defined in LL-EXPL-1.2.1, and add a &lt;DependsOn&gt; from LL-MAP-2.3.1 to LL-EXPL-1.2.1.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--6">
+    <ItemID>LL-INTERF-6.1.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      Multiple LLRs depend on external "sensor data interface description" and "motor interface description" (e.g., LL-INTERF-6.1.1, LL-INTERF-6.2.1) without specifying minimal assumptions or constraints on these interfaces. This reduces the ability to derive architecture independently and to verify that interfaces are sufficient, creating a dependency on unspecified external documents.
+    </Description>
+    <Solution>
+      Add supplementary interface LLRs that specify the minimal required properties of sensor and motor interfaces (e.g., supported message fields, units, timing guarantees) that the architecture must implement, so the design can proceed without relying solely on external descriptions.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--7">
+    <ItemID>LL-PLAN-3.1.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-PLAN-3.1.2 allows path optimality to be based on "Euclidean or Manhattan" distances, depending on configuration. This leaves a degrees-of-freedom that may cause architecture and implementation to diverge and makes it harder to derive deterministic tests for "optimal" behavior.
+    </Description>
+    <Solution>
+      Either fix the metric explicitly (e.g., require one specific distance metric) or add an LLR specifying configuration management of the chosen metric, including where it is configured, how it is read, and how tests will determine which metric is in effect.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--8">
+    <ItemID>LL-EXPL-1.2.0</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The exploration state machine is only specified at a high level (names of states and some transitions), but the transitions between RETURN_TO_START and SECOND_RUN and from ERROR to other states are underspecified. For example, the trigger to leave ERROR state or to re-enter IDLE is not defined. This may be insufficient for consistent architecture design.
+    </Description>
+    <Solution>
+      Add one or more LLRs that fully specify: (a) state transition conditions between all defined states (IDLE, EXPLORE, RETURN_TO_START, SECOND_RUN, ERROR), and (b) what events or conditions cause entry/exit from ERROR, and how the system recovers or is reset.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--9">
+    <ItemID>LL-RELIAB-5.2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-RELIAB-5.2.3 refers to "critical sensors" and a "configurable duration" for persistent faults, but there is no requirement defining which sensors are critical or how that configuration is managed. This can lead to inconsistent interpretations in different implementations.
+    </Description>
+    <Solution>
+      Add a dedicated LLR defining (a) which sensors are considered critical, and (b) how the "configurable duration" is specified (e.g., configuration parameter name, range, unit). Reference it via &lt;DependsOn&gt; from LL-RELIAB-5.2.3.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--10">
+    <ItemID>LL-INTERF-6.2.4</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-INTERF-6.2.4 mandates an emergency stop command triggered by "hard-stop wall proximity condition or severe fault condition", but the exact logical source and propagation path of these conditions are not defined at LLR level (e.g., which component raises the severe fault and how it reaches the actuator interface).
+    </Description>
+    <Solution>
+      Introduce LLRs (likely under RELIAB or INTERF) that describe the signaling mechanism for severe faults and hard-stop conditions (e.g., events or messages), and how the actuator control subsystem subscribes to and reacts to these signals.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--11">
+    <ItemID>LL-EXPL-1.2.4</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.2.4 uses "configured exploration time budget" language while HL-MAP-2.3 fixes it at 5 minutes. The LLR suggests configurability but the HLR constrains it, which may cause confusion in implementation and testing.
+    </Description>
+    <Solution>
+      Align the wording with HL-MAP-2.3 by explicitly stating that the time budget is 5 minutes (or parameterized but constrained to 5 minutes in the baseline), and add a &lt;DependsOn&gt; from LL-EXPL-1.2.4 to LL-MAP-2.3.1 to keep consistency.
+    </Solution>
+  </Finding>
+</Findings>
