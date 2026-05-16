@@ -1,0 +1,9 @@
+<AdditonalData  version="{version}">
+    <Data>
+        <ID> {Identifier} </ID>
+        <Content>
+            {Content}
+        </Content>
+        <DerivedFrom> {Requirements}</DerivedFrom>
+    </Data>
+</AdditonalData>

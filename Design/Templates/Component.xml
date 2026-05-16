@@ -1,0 +1,28 @@
+<Components  version="{version}">
+    <Component>
+        <ID> {Identifier} </ID>
+        <Purpose> {Purpose} </Purpose>
+        <ConnectedComponents>
+            <ConnectedComponent>
+                <Identifier> {Identifier} </Identifier>
+                <Transmit>
+                    <Signal>
+                        <Name>{Signal Name}</Name>
+                        <Description>{Signal Description}</Description>
+                    </Signal>
+                </Transmit>
+                <Receive>
+                    <Signal>
+                        <Name>{Signal Name}</Name>
+                        <Description>{Signal Description}</Description>
+                    </Signal>
+                </Receive>
+            </ConnectedComponent>
+        </ConnectedComponents>
+        <Execution> {Execution Conditions} </Execution>
+        <Timing> {Timing Constraints} </Timing>
+        <Invariants> {Invariants} </Invariants>
+        <Failures> {Failures} </Failures>
+        <DerivedFrom> {Requirements} </DerivedFrom>
+    </Component>
+</Components>

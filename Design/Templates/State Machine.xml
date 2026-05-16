@@ -1,6 +1,7 @@
-<StateMachines>
+<StateMachines  version="{version}">
     <StateMachine>
-        <Entity>{Entity}</Entity>
+        <ID> {Identifier} </ID>
+        <OfComponent>{Component}</OfComponent>
         <States>
             <State>
                 <Name>{Name}</Name>
@@ -16,5 +17,6 @@
                 <TransitionAction>{Action}</TransitionAction>
             </Transition>
         </Transitions>
+        <DerivedFrom> {Requirements} </DerivedFrom>
     </StateMachine>
 </StateMachines>
