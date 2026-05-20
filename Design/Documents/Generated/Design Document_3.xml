@@ -1,0 +1,2272 @@
+<Design>
+    <Components version="1">
+        <Component>
+            <ID>CMP--1</ID>
+            <Name>Mission Control State Machine Component</Name>
+            <Purpose>
+                Orchestrates the top-level mission behavior of the robot across IDLE, EXPLORE, RETURN_TO_START, SECOND_RUN, and COMPLETED phases. It runs once per control-loop iteration, reads system status (initialization, sensor validity, exploration status, timeouts, planning results), advances an internal finite-state machine, and issues high-level commands to subordinate modules:
+                - Requests frontier targets from the Frontier Generation component during exploration.
+                - Requests path computations from the Path Planning component (exploration targets, return-to-start, second-run).
+                - Requests path execution from the Motion Control component.
+                - Interfaces with the Exploration-Status and Time-Limit logic to decide when exploration is complete or timed out.
+                - Manages second-run success/failure status and provides it for external reporting.
+                It is strictly reactive: all work triggered by control-loop ticks and asynchronous events delivered via queues/flags evaluated in the loop.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--2</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MC_FrontierRequest</Name>
+                            <Description>
+                                Request structure sent from Mission Control to Frontier Generation during EXPLORE. Contains:
+                                - requester_id = CMP--1
+                                - current_cell (row, col) from pose estimate
+                                - optional max_frontiers (uint16) limiting number of returned cells (can be 0 for all)
+                                - exploration_mode flag (bool) distinguishing exploration vs planning queries
+                                Semantics: triggers recomputation/lookup of frontier set; synchronous call within same control-loop iteration.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_PathPlanRequest</Name>
+                            <Description>
+                                Request sent to Path Planning component. Struct fields:
+                                - type: {EXPLORE_TO_FRONTIER, RETURN_TO_START, SECOND_RUN_TO_GOAL}
+                                - start_cell: (row, col)
+                                - goal_spec:
+                                    * for EXPLORE_TO_FRONTIER: target frontier cell (row, col)
+                                    * for RETURN_TO_START: start_cell coordinate from map module
+                                    * for SECOND_RUN_TO_GOAL: goal_region description (set of goal cells)
+                                - cost_model_profile:
+                                    * EXPLORATION_PROFILE: lower speed, cost tuned to balance distance and information gain
+                                    * SECOND_RUN_PROFILE: cost tuned to approximate travel time and penalize turns
+                                - time_constraint_ms: remaining allowed exploration time (for EXPLORE) or 0 if no constraint
+                                Request is synchronous within control-loop: caller blocks until Path Plan response is produced or failure is signaled in the same tick.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_PathExecutionCommand</Name>
+                            <Description>
+                                High-level command to Motion Control component indicating what path to execute:
+                                - path_handle or path_sequence (ordered list of (row, col, heading) waypoints)
+                                - execution_mode: {EXPLORE_MODE, RETURN_MODE, SECOND_RUN_MODE}
+                                - allow_replanning: bool
+                                - emergency_stop_enabled: bool
+                                - target_reached_tolerance: max deviation (cell and heading) allowed to consider waypoint reached.
+                                Mission Control issues this when a new path is available or needs to be (re)started.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_ReturnToStartInvoke</Name>
+                            <Description>
+                                Logical signal/event from Mission Control to Return-to-Start service (in Path Planning / Motion Control stack) indicating exploration has ended. Contains:
+                                - trigger_reason: {MAP_COMPLETE, EXPLORATION_TIMEOUT}
+                                - current_cell
+                                - start_cell (from grid map)
+                                Used to start RETURN_TO_START computation and execution.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_SecondRunInvoke</Name>
+                            <Description>
+                                Signal to Second-Run services to start fastest-path planning and execution. Contains:
+                                - confirmation that current_cell == start_cell
+                                - selected_goal_region (2x2 FREE block)
+                                - second_run_profile configuration (max speed, acceleration limits).
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>FG_FrontierSet</Name>
+                            <Description>
+                                Response from Frontier Generation:
+                                - frontier_cells: array of (row, col)
+                                - timestamp
+                                - valid: bool
+                                - updated_since_last: bool
+                                If empty and map not complete, exploration module may signal inability to proceed; otherwise selection heuristic chooses a target.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>PP_PathPlanResponse</Name>
+                            <Description>
+                                Response from Path Planner:
+                                - status: {SUCCESS, NO_PATH}
+                                - path: list of waypoints ((row, col, heading)) if SUCCESS, else empty
+                                - estimated_travel_time_ms for this path, computed from traversal costs and nominal cell traversal time
+                                - invalidation_subscription_token: opaque handle used to subscribe for map change invalidation events.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_ExplorationStatusEvents</Name>
+                            <Description>
+                                Events pulled from system event queue created by Exploration Status component:
+                                - type: {EXPLORATION_COMPLETED, EXPLORATION_TIMEOUT}
+                                - timestamp
+                                - map_complete_flag (for COMPLETED)
+                                Mission Control uses these to trigger transition from EXPLORE to RETURN_TO_START.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>INIT_COMPLETED_Indication</Name>
+                            <Description>
+                                Flag or event from Initialization module indicating all initialization done. Mission Control reads it each loop:
+                                - representation: volatile bool or event queue record
+                                - once consumed, remains latched in internal MC state to avoid missing transient events.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>SensorValidityStatus</Name>
+                            <Description>
+                                From Sensor Abstraction:
+                                - has_valid_ultrasonic: bool
+                                - has_valid_ir: bool
+                                - last_ultrasonic.distance_cm, timestamp
+                                - last_ir.left_flag, right_flag, timestamp
+                                Used for Exploration Start Condition decision and to ensure moves are not initiated without at least one valid full sensor set.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>PathExecutionStatus</Name>
+                            <Description>
+                                Status from Motion Control while executing a path:
+                                - path_id
+                                - segment_index
+                                - status: {IN_PROGRESS, REACHED_GOAL, COLLISION_EMERGENCY_STOP, PATH_INVALIDATED, PLANNING_FAILURE}
+                                - second_run_result (if in SECOND_RUN context): {UNDEFINED, SUCCESS, FAILURE}
+                                Mission Control uses this to determine when to transition between states and to set final second-run status.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MC_MapCompletenessQuery</Name>
+                            <Description>
+                                Query to Grid Map / Map Completeness logic to obtain:
+                                - is_complete: bool
+                                - unknown_cell_count
+                                - unknown_wall_count
+                                Used to determine if exploration is done (in addition to Exploration Status events).
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>MC_TimeRemainingQuery</Name>
+                            <Description>
+                                Query to Time-Aware Planning / Exploration Status:
+                                - elapsed_time_ms since exploration start
+                                - remaining_time_ms before 5 min limit
+                                Mission Control uses remaining_time_ms when forming MC_PathPlanRequest for exploration targets to respect time constraints.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapCompletenessIndication</Name>
+                            <Description>
+                                Boolean or struct from map module:
+                                - is_complete: bool
+                                - last_complete_change_timestamp
+                                This indication is also used by Exploration-Status module; MC double-checks state as safeguard.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>RemainingExplorationTimeInfo</Name>
+                            <Description>
+                                From Time-Aware Planning:
+                                - elapsed_time_ms
+                                - remaining_time_ms
+                                - global_limit_ms (default 300000)
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--4</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MC_SecondRunStatusOutput</Name>
+                            <Description>
+                                Output provided to external reporting and higher-level modules at COMPLETED state:
+                                - status: {NOT_RUN, SUCCESS, FAILURE, ABORTED}
+                                - completion_timestamp
+                                It remains latched and readable indefinitely after mission completion.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>ExternalMissionControlCommands</Name>
+                            <Description>
+                                Optional external control commands (e.g., to reset mission, start new mission) if supported:
+                                - command_type: {RESET_MISSION, START_SECOND_RUN_ONLY, NONE}
+                                - parameters
+                                Not directly covered by LLRs but reserved for extension; current design may ignore.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                Executed once per iteration of the periodic control loop scheduled by CMP--8 (Scheduling/Control Loop).
+                Pre-conditions per cycle:
+                - Sensor Abstraction layer has delivered latest sensor readings to shared state.
+                - Grid map and pose modules have updated their internal states for current cycle.
+                - Event queue from Exploration-Status has been updated.
+                Mission Control's finite state machine processes:
+                1. Poll INIT_COMPLETED indication and sensor validity.
+                2. Process any pending exploration events (EXPLORATION_COMPLETED, EXPLORATION_TIMEOUT).
+                3. Based on current FSM state and inputs (time remaining, map completeness, path execution status), compute deterministic next state.
+                4. Issue at most one new high-level command per cycle (e.g., plan request, path execution start/stop), ensuring side-effect-free read operations for map and sensors.
+            </Execution>
+            <Timing>
+                - Executes at the control-loop frequency T defined by CMP--8 (Periodic Control Loop Scheduling).
+                - Control-loop frequency equals sensor sampling rate in [10, 50] Hz (default 20 Hz).
+                - All MC operations are deterministic and must complete well within one cycle budget (e.g., &lt; 20% of T at default rate) assuming path planning may execute within the same thread; if planning is heavy, planning can be split over multiple cycles but MC must treat partial-planning state explicitly.
+                - Exploration timeout limit: 5 minutes (300000 ms) from EXPLORE entry time. Remaining time is computed each cycle.
+                - MC must not issue more than one re-planning request per cycle per path type (to avoid planner overload).
+            </Timing>
+            <Invariants>
+                - FSM state is always one of {IDLE, EXPLORE, RETURN_TO_START, SECOND_RUN, COMPLETED}; no other state values allowed.
+                - State transitions are deterministic: for a given current state and input set (INIT_COMPLETED flag, events, time, completion flags), at most one outgoing transition is taken.
+                - EXPLORE may only be entered once per mission; RETURN_TO_START may only be entered after EXPLORE; SECOND_RUN may only be entered after RETURN_TO_START; COMPLETED may only be entered after SECOND_RUN or after an unrecoverable failure.
+                - Mission Control shall never issue motion commands directly; it only commands Motion Control via high-level path execution interfaces, preserving separation of concerns.
+                - Mission Control shall not transition from IDLE to EXPLORE unless:
+                    * INIT_COMPLETED == true, and
+                    * SensorValidityStatus indicates at least one valid ultrasonic and IR measurement (left and right available).
+                - SECOND_RUN status output is only written while in SECOND_RUN or on transition to COMPLETED; once in COMPLETED it becomes read-only.
+            </Invariants>
+            <Failures>
+                - Planning Failure in RETURN_TO_START:
+                    * Condition: Path Planner responds NO_PATH to MC_PathPlanRequest with type RETURN_TO_START.
+                    * Behavior: Mission Control sets an internal "return_to_start_failed" flag, skips SECOND_RUN, and transitions to COMPLETED with second-run status FAILURE. Robot remains stopped (no motion commands issued).
+                - Planning Failure in SECOND_RUN:
+                    * Condition: Path Planner responds NO_PATH for SECOND_RUN_TO_GOAL.
+                    * Behavior: Mission Control sets second run status FAILURE, transitions to COMPLETED, and keeps robot stopped.
+                - Exploration No-Frontier Condition:
+                    * Condition: Frontier set is empty while map completeness is false and remaining_time_ms &gt; 0.
+                    * Behavior: Mission Control treats this as exploration-completed due to lack of reachable frontiers, publishes EXPLORATION_COMPLETED event via Exploration-Status interface or directly triggers RETURN_TO_START.
+                - Emergency Stop During Any Path Execution:
+                    * Condition: Motion Control reports PathExecutionStatus.status == COLLISION_EMERGENCY_STOP.
+                    * Behavior: Mission Control suspends current state transition:
+                        - In EXPLORE: attempt replanning to nearest safe cell or new frontier; if repeated failures or no path, treat as exploration failure and go to RETURN_TO_START or COMPLETED depending on circumstances.
+                        - In RETURN_TO_START: attempt replanning; if repeated failures or NO_PATH, mark mission as failed and go to COMPLETED.
+                        - In SECOND_RUN: immediately mark second-run FAILURE and transition to COMPLETED.
+                - Timeout While Planning:
+                    * Condition: Global mapping time limit reached while planner still computing exploration path.
+                    * Behavior: Exploration-Status publishes EXPLORATION_TIMEOUT event. On next cycle, MC disregards pending exploration plan and transitions from EXPLORE to RETURN_TO_START.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.1.1
+                LL--MAP--1.1.2
+                LL--MAP--1.1.3
+                LL--MAP--1.1.4
+                LL--MAP--1.5.1
+                LL--MAP--1.5.2
+                LL--MAP--1.5.3
+                LL--PLAN--1.1.1
+                LL--PLAN--1.1.2
+                LL--PLAN--1.1.3
+                LL--PLAN--1.1.4
+                LL--PLAN--1.1.5
+                LL--RUN--1.1.1
+                LL--RUN--1.1.2
+                LL--RUN--1.2.1
+                LL--RUN--1.2.2
+                LL--RUN--1.2.3
+                LL--RUN--1.2.4
+                LL--RUN--1.2.5
+                LL--RELIAB--1.1.2
+                LL--RELIAB--1.2.1
+                LL--INTERF--1.1.1
+                LL--INTERF--1.2.1
+                LL--SCHED--1.1.1
+                LL--INIT--1.1.1
+                LL--EVENT--1.1.1
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--2</ID>
+            <Name>Frontier Generation and Exploration Target Selection Component</Name>
+            <Purpose>
+                Implements frontier-based exploration. Responsibilities:
+                - Maintains and recomputes the set of frontier cells: cells in UNKNOWN state that are 4-neighbors of at least one FREE cell.
+                - Provides API to obtain current frontier set on demand from Mission Control or planner.
+                - Implements exploration target selection heuristic that:
+                    * Uses traversal cost model consistent with Path Planner for travel-time estimate.
+                    * Adds heuristic term for expected information gain (i.e., number of newly observable UNKNOWN cells from that frontier).
+                    * Filters out frontiers whose estimated reach-and-explore time exceeds remaining exploration time.
+                - Exposes chosen target as a cell coordinate for path planning requests.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>FG_TargetSelectionMapQueries</Name>
+                            <Description>
+                                Grid map queries performed while selecting targets:
+                                - get_cell_state(row, col) - returns {UNKNOWN, FREE, BLOCKED}
+                                - get_neighbors(row, col) - returns up to 4 neighbor coordinates and their wall segment states
+                                - get_wall_state(edge_descriptor) - {UNKNOWN, PRESENT, ABSENT}
+                                - get_reachability_info (optional) to ensure candidate frontiers are reachable (may delegate to Path Planner).
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapClassificationChangeEvent</Name>
+                            <Description>
+                                Event from grid map access interface:
+                                - changed_cells: list of (row, col, old_state, new_state)
+                                - changed_walls: list of (wall_id, old_state, new_state)
+                                Used to trigger recomputation of frontier set when a cell changes from UNKNOWN to FREE/BLOCKED or wall segments change from UNKNOWN.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>FG_FrontierSet</Name>
+                            <Description>
+                                See CMP--1.Receive.FG_FrontierSet. This component computes frontier set and returns it to Mission Control.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_FrontierRequest</Name>
+                            <Description>
+                                See CMP--1.Transmit.MC_FrontierRequest. Used to trigger frontier computation or to access cached frontiers.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>RemainingExplorationTimeInfo</Name>
+                            <Description>
+                                Provided by Time-Aware Planning or Mission Control:
+                                - remaining_time_ms
+                                - nominal_cell_traversal_ms
+                                Used to filter candidate targets that cannot be explored within remaining time.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--5</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>FG_TargetCostEstimationRequest</Name>
+                            <Description>
+                                For each candidate frontier, FG may call into Path Planner for:
+                                - estimated shortest path cost (in arbitrary cost units or time) from current cell to frontier under exploration cost profile.
+                                This can be implemented using:
+                                - request_estimated_cost_only(start, goal) (no full path required) or
+                                - reuse of path planning algorithm but discarding path and keeping cost.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>PP_TargetCostEstimationResponse</Name>
+                            <Description>
+                                Response from Path Planner to cost estimation:
+                                - success: bool
+                                - estimated_cost (float)
+                                - estimated_travel_time_ms
+                                If success==false or infinite cost, frontier is treated as unreachable.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - Runs in two main modes:
+                  1) Event-driven frontier update:
+                     * On each MapClassificationChangeEvent where old_state == UNKNOWN and new_state in {FREE, BLOCKED} for cell or wall changes, recompute frontier set incrementally:
+                       - For changed cell (r,c): evaluate its 4-neighbors and itself to see whether they now meet frontier definition.
+                       - For wall changes, reevaluate adjacency relationships as needed.
+                     * Complexity O(k) for number of local neighbors.
+                  2) On-demand frontier query and target selection:
+                     * On MC_FrontierRequest in EXPLORE, ensure frontier set is current (may recalc if stale), then return full set or subset according to request.
+                     * When asked to select a best target (either within this component or by exposing scoring function to MC), for each candidate frontier:
+                       - Use get_neighbors to approximate expected number of newly observable UNKNOWN cells (information gain).
+                       - Request path cost estimate from Path Planner or compute Manhattan-like heuristic consistent with cost model.
+                       - Convert path cost to estimated travel time using nominal_cell_traversal_ms and cost parameters.
+                       - Combine metrics: H(frontier) = alpha * travel_time + beta * (-expected_new_cells), with tunable alpha,beta, and pick minimum H subject to constraint travel_time &lt;= remaining_time_ms.
+                - Executed within the control-loop thread when invoked so all updates are single-threaded with respect to map access.
+            </Execution>
+            <Timing>
+                - No hard real-time constraints, but operations must complete within the control loop period.
+                - Frontier incremental updates should run in O(1) per changed cell/wall, ensuring scalability.
+                - Target selection complexity per cycle: O(F) where F is current frontier count; with 4x8 maze, F is bounded by 32.
+                - In practice, frontier selection must finish within ~25% of control loop period at default 20 Hz.
+            </Timing>
+            <Invariants>
+                - Maintains data structure frontier_set where each (row, col) satisfies:
+                    * cell_state(row, col) == UNKNOWN
+                    * exists a neighbor (row', col') in 4-neighborhood such that cell_state(row', col') == FREE and wall_state between them != PRESENT.
+                - No duplicates in frontier_set.
+                - After any map cell changes from UNKNOWN to non-UNKNOWN, that cell is removed from frontier_set if present.
+                - frontier_set fully reflects grid map contents when there are no pending classification changes.
+                - Heuristic scores for targets are recomputed when either remaining_time_ms or traversal cost parameters change.
+            </Invariants>
+            <Failures>
+                - No Candidate Frontiers:
+                    * Condition: frontier_set is empty and map is not complete.
+                    * Behavior: Component signals empty frontier set to MC. MC may treat as implicit exploration completion or failure.
+                - Target Exceeds Remaining Time:
+                    * Condition: For all candidates, estimated_travel_time_ms &gt; remaining_time_ms.
+                    * Behavior: Component returns no valid target; MC then triggers exploration timeout or map-complete check.
+                - Planner Cost Estimation Failure:
+                    * Condition: Path Planner signals failure for cost estimation or path not found.
+                    * Behavior: Mark that frontier as unreachable and skip it in heuristic; if all skipped, treat as no-candidate case.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.1.4
+                LL--MAP--1.1.5
+                LL--MAP--1.1.6
+                LL--MAP--1.1.6
+                LL--MAP--1.3.1
+                LL--MAP--1.3.7
+                LL--MAP--1.5.1
+                LL--MAP--1.5.2
+                LL--MAP--1.5.3
+                LL--PLAN--1.1.1
+                LL--PLAN--1.1.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--3</ID>
+            <Name>Grid Map and Classification Component</Name>
+            <Purpose>
+                Provides central representation of the 4x8 maze grid including:
+                - Cell state enumeration {UNKNOWN, FREE, BLOCKED}.
+                - Inter-cell wall state enumeration {UNKNOWN, PRESENT, ABSENT}.
+                - Indexing of cells and inter-cell walls based on a consistent (row, col) coordinate system and wall boundary indexing.
+                Responsibilities:
+                - Initialize all cells/walls to UNKNOWN at mission start.
+                - Initialize designated start cell as FREE and record its coordinate.
+                - Maintain immutable classification semantics: cells and walls change only from UNKNOWN to specific definitive states and never revert or toggle between definitive states.
+                - Update cell and wall classifications based on Mapping component requests (sensor-derived) and reliability constraints (consistency checks).
+                - Provide read and write interface to other modules (planning, frontier generation, etc.).
+                - Maintain and compute map completeness status.
+                - Provide classification-change events to registered listeners (e.g., Frontier Generation, Replanning).
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--6</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapUpdateRequests</Name>
+                            <Description>
+                                From Mapping Component: requests to update cell or wall states:
+                                - type: {SET_CELL_STATE, SET_WALL_STATE}
+                                - cell: (row, col) when applicable
+                                - wall: wall_id describing boundary between (r1,c1) and (r2,c2)
+                                - requested_state: new classification
+                                Map enforces static assumptions and consistency checks before applying.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapUpdateAcknowledge</Name>
+                            <Description>
+                                Map module may respond with success/failure:
+                                - success: bool
+                                - actual_new_state: enumeration
+                                - reason: {OK, INVALID_TRANSITION, CONSISTENCY_REJECTED}
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--2</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapClassificationChangeEvent</Name>
+                            <Description>
+                                See CMP--2.Receive.MapClassificationChangeEvent. Generated when cell or wall classification changes from UNKNOWN to definitive state.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>FG_TargetSelectionMapQueries</Name>
+                            <Description>
+                                See CMP--2.Transmit.FG_TargetSelectionMapQueries. Map responds synchronously to these queries.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--5</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PlannerMapQueries</Name>
+                            <Description>
+                                From Planner: queries to get cell and wall states and neighbors for constructing graph:
+                                - get_cell_state
+                                - get_wall_state
+                                - get_reachable_neighbors
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>PlannerMapAccess</Name>
+                            <Description>
+                                Equivalent to PlannerMapQueries; Map implements these APIs.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapCompletenessIndication</Name>
+                            <Description>
+                                See CMP--1.Receive.MapCompletenessIndication. Map module provides a boolean is_complete and maintains it up-to-date.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>StartCellInformation</Name>
+                            <Description>
+                                Start cell coordinate data:
+                                - start_cell_row
+                                - start_cell_col
+                                - start_heading (optional) for orientation reference.
+                                Provided on request for Return-to-Start and Second Run logic.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_MapCompletenessQuery</Name>
+                            <Description>
+                                Query for completeness; triggers instantaneous evaluation (no heavy computation).
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - Initialization phase:
+                  * On system startup before exploration:
+                    - Initialize a 4x8 array of cells; set each cell.state = UNKNOWN.
+                    - For each possible wall boundary between horizontally and vertically adjacent cells (using Inter-Cell Wall Indexing), create a wall segment record and set wall.state = UNKNOWN.
+                    - Apply start cell init: designate cell (row0,col0) as start (e.g., (0,0)), set state = FREE.
+                    - Mark map_complete flag as false.
+                - Runtime operations:
+                  * On each control-loop iteration (single-threaded):
+                    - Process queued MapUpdateRequests from Mapping component:
+                      - For cells: if current_state == UNKNOWN and new_state in {FREE, BLOCKED}, commit and emit classification-change event; ignore if transition invalid (e.g., FREE-&gt;BLOCKED).
+                      - For walls: if current_state == UNKNOWN and new_state in {PRESENT, ABSENT}, commit and emit event; ignore invalid transitions.
+                    - Update completeness:
+                      - On any change from UNKNOWN to definitive, maintain a count of UNKNOWN cells/walls; if both counts reach zero, set map_complete = true, else if any UNKNOWN present, map_complete = false.
+                    - Support read queries for map state from Planner, Frontier Generator, Pose, etc.
+                - All operations must be deterministic and performed within the control-loop cycle.
+            </Execution>
+            <Timing>
+                - Map update and query operations are O(1) per cell or wall using array indices and precomputed adjacency lists.
+                - Completeness updates are O(1) using counters (no need to scan entire map).
+                - All operations are invoked from within the periodic control loop (CMP--8) ensuring no multi-threaded access and no additional synchronization.
+            </Timing>
+            <Invariants>
+                - For each cell c:
+                    * c.state in {UNKNOWN, FREE, BLOCKED}.
+                    * State transitions allowed only UNKNOWN -&gt; FREE or UNKNOWN -&gt; BLOCKED.
+                    * Once in FREE or BLOCKED, never transitions to any other value for the current mission.
+                - For each wall segment w:
+                    * w.state in {UNKNOWN, PRESENT, ABSENT}.
+                    * State transitions allowed only UNKNOWN -&gt; PRESENT or UNKNOWN -&gt; ABSENT.
+                    * Once in PRESENT or ABSENT, never transitions to other value for the mission.
+                - Map completeness flag:
+                    * map_complete == true iff all cells and walls have non-UNKNOWN state.
+                - Coordinate convention:
+                    * 0 &lt;= row &lt; 4, 0 &lt;= col &lt; 8.
+                    * Start cell is fixed coordinate (e.g., row 0, col 0) across modules.
+            </Invariants>
+            <Failures>
+                - Invalid Update Request:
+                    * Condition: attempt to change FREE -&gt; BLOCKED or PRESENT -&gt; ABSENT, etc.
+                    * Behavior: reject update, keep previous state, optionally log or count rejection. Does not affect completeness counters.
+                - Out-of-Range Access:
+                    * Condition: query or update request with row/col or wall indices outside defined range.
+                    * Behavior: return error code to caller, ignore update; no state change.
+                - Consistency Violations from Reliability Checks:
+                    * Condition: Mapping or Reliability modules disallow update due to inconsistent sensor evidence.
+                    * Behavior: Map returns INVALID_TRANSITION or CONSISTENCY_REJECTED; caller responsible for handling.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.3.1
+                LL--MAP--1.3.2
+                LL--MAP--1.3.3
+                LL--MAP--1.3.4
+                LL--MAP--1.3.5
+                LL--MAP--1.3.6
+                LL--MAP--1.3.7
+                LL--MAP--1.4.1
+                LL--MAP--1.4.2
+                LL--MAP--1.4.3
+                LL--MAP--1.4.4
+                LL--ENV--1.1.1
+                LL--ENV--1.2.1
+                LL--ENV--1.3.1
+                LL--ENV--1.4.1
+                LL--ENV--3.1.1
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--4</ID>
+            <Name>Exploration Status and Time Limit Component</Name>
+            <Purpose>
+                Tracks exploration progress and global time limits. Responsibilities:
+                - Start and track mission time from EXPLORE state entry.
+                - Maintain configurable global exploration time limit (default 5 minutes).
+                - Compute elapsed and remaining exploration time.
+                - Observe map completeness (via CMP--3) and global time to decide when exploration is complete versus timed-out.
+                - Publish EXPLORATION_COMPLETED and EXPLORATION_TIMEOUT events through a system event queue accessible to Mission Control and Return-to-Start logic.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>ExplorationStatusEvents</Name>
+                            <Description>
+                                Events enqueued to system event queue:
+                                - event_type: {EXPLORATION_COMPLETED, EXPLORATION_TIMEOUT}
+                                - timestamp_ms
+                                - map_complete_flag
+                                - cause: {MAP_COMPLETE, GLOBAL_TIMEOUT}
+                                MC consumes these to transition states.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>RemainingTimeInfo</Name>
+                            <Description>
+                                Synchronous data provided to MC:
+                                - elapsed_time_ms since EXPLORE entry
+                                - remaining_time_ms until global_limit_ms
+                                - global_limit_ms (default 300000)
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_ExplorationPhaseNotification</Name>
+                            <Description>
+                                Notification from MC when entering or leaving EXPLORE:
+                                - on_enter_explore(timestamp_ms)
+                                - on_exit_explore(timestamp_ms, reason).
+                                Used to start/stop counters and lock-in events.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapCompletenessPoll</Name>
+                            <Description>
+                                Poll of map completeness:
+                                - is_complete: bool
+                                - unknown_cell_count
+                                - unknown_wall_count.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapCompletenessIndication</Name>
+                            <Description>
+                                As defined in CMP--3.Transmit.MapCompletenessIndication; used to detect completion condition.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--7</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>TimeParameterQueries</Name>
+                            <Description>
+                                Queries to get nominal cell traversal duration used for time-aware planning:
+                                - nominal_cell_traversal_ms (configurable)
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>NominalCellTraversalConfiguration</Name>
+                            <Description>
+                                Configuration data:
+                                - nominal_cell_traversal_ms
+                                - time_aware_planning_enabled: bool
+                                Received from configuration storage at startup.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On startup:
+                  * Load global_limit_ms (default 300000 ms).
+                  * Load nominal_cell_traversal_ms parameter.
+                - On receiving MC_ExplorationPhaseNotification.on_enter_explore:
+                  * Record exploration_start_time_ms from scheduling time base.
+                  * Reset flags exploration_completed and exploration_timeout to false.
+                - On each control-loop iteration while in EXPLORE:
+                  * Compute elapsed_time_ms = current_time_ms - exploration_start_time_ms.
+                  * Compute remaining_time_ms = max(global_limit_ms - elapsed_time_ms, 0).
+                  * Poll map completeness: if map_complete == true and exploration_completed == false:
+                    - Set exploration_completed = true.
+                    - Enqueue EXPLORATION_COMPLETED event.
+                  * If elapsed_time_ms &gt;= global_limit_ms and exploration_timeout == false:
+                    - Set exploration_timeout = true.
+                    - Enqueue EXPLORATION_TIMEOUT event.
+                - After leaving EXPLORE, no new events are generated.
+            </Execution>
+            <Timing>
+                - Runs once per control-loop iteration (within CMP--8 sequence) with O(1) operations.
+                - Timer accuracy must be sufficient so that exploration duration is accurate within control-loop jitter tolerance; scheduling module provides current_time_ms or delta times.
+            </Timing>
+            <Invariants>
+                - At most one EXPLORATION_COMPLETED and one EXPLORATION_TIMEOUT event per mission.
+                - EXPLORATION_COMPLETED may be generated only when map_complete == true and while in EXPLORE phase.
+                - EXPLORATION_TIMEOUT may be generated only when elapsed_time_ms &gt;= global_limit_ms and while in EXPLORE phase.
+                - After EXPLORE has been exited, exploration start, elapsed, and remaining time remain constant and read-only.
+            </Invariants>
+            <Failures>
+                - Time Base Failure:
+                    * Condition: Scheduling component does not advance current_time_ms.
+                    * Behavior: elapsed_time_ms remains constant; thus timeout never occurs; map completion alone drives exploration completion.
+                - Map Completeness Misreport:
+                    * Condition: due to bug, map_complete toggles incorrectly.
+                    * Behavior: component may emit EXPLORATION_COMPLETED prematurely; reliance on Map invariants should prevent this.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.1.3
+                LL--MAP--1.3.6
+                LL--MAP--1.5.1
+                LL--MAP--1.5.2
+                LL--MAP--1.5.3
+                LL--EVENT--1.1.1
+                LL--SCHED--1.1.1
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--5</ID>
+            <Name>Path Planning and Goal Region Component</Name>
+            <Purpose>
+                Implements cell-based path planning and goal-region selection:
+                - Provides Dijkstra or A* algorithm operating on grid map where:
+                    * Nodes: FREE cells.
+                    * Edges: 4-connected adjacency not separated by PRESENT walls.
+                - Supports path optimality criterion using traversal cost model that differentiates straight moves and turns.
+                - Handles goal region semantics where target can be any of several cells (2x2 FREE region).
+                - Supports replanning when map updates invalidate current paths.
+                - Reports planning failures when no valid path exists.
+                - Provides specialized services:
+                    * Return-to-start path computation.
+                    * Fastest path computation for second run by configuring cost parameters to approximate time.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PlannerMapAccess</Name>
+                            <Description>
+                                Path Planner queries map:
+                                - get_cell_state(row, col)
+                                - get_wall_state(boundary)
+                                - iterate over all cells to find FREE nodes for goal-region selection.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapClassificationChangeEvent</Name>
+                            <Description>
+                                Subscribed events from grid map used for:
+                                - Invalidation of current planned paths when a FREE cell or ABSENT wall becomes BLOCKED or PRESENT (although such transitions are disallowed by map invariants, they may occur only when previously UNKNOWN is clarified to BLOCKED/PRESENT, causing path invalidation).
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PP_PathPlanResponse</Name>
+                            <Description>
+                                See CMP--1.Receive.PP_PathPlanResponse. Contains path, status, estimated travel time, invalidation token.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_PathPlanRequest</Name>
+                            <Description>
+                                See CMP--1.Transmit.MC_PathPlanRequest. Path Planner executes algorithm accordingly.
+                            </Description>
+                        </Signal>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--4</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PP_ElapsedTimeUsage</Name>
+                            <Description>
+                                When performing time-aware planning for exploration, Path Planner obtains:
+                                - remaining_time_ms
+                                - nominal_cell_traversal_ms
+                                Possibly used to discard paths not feasible in given time.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>RemainingTimeInfo</Name>
+                            <Description>
+                                Same as in CMP--4.Transmit.RemainingTimeInfo.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--9</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>GoalRegionSelectionQuery</Name>
+                            <Description>
+                                For second-run:
+                                - Request to identify candidate 2x2 FREE blocks and select the one minimizing path cost from start cell.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>GoalRegionSelectionResult</Name>
+                            <Description>
+                                - selected_region: set of 2x2 cell coordinates or empty if none.
+                                - candidate_regions: list of all 2x2 reachable eigen-regions for debugging or analysis.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - Core planning:
+                  * Represent each FREE cell as node; edges exist between orthogonally adjacent FREE cells where wall state between them is not PRESENT.
+                  * Edge cost computed as:
+                    - base_cost (e.g., 1.0 for movement between adjacent cells) multiplied by factor depending on movement direction and whether a turn is needed from previous move.
+                    - For time-optimal second run, edge cost approximates travel time: cost = distance / speed + turning_penalty.
+                  * Implement A* with heuristic:
+                    - For general planning: Manhattan distance scaled by straight-travel cost.
+                    - For time-aware: Manhattan distance scaled by nominal_cell_traversal_ms.
+                - Endpoints:
+                  * For simple start-goal cell pairs:
+                    - Run A*/Dijkstra from start; stop when reaching goal, returning minimal cost path.
+                  * For goal region (2x2):
+                    - Run multi-goal search or run search until all goal cells visited; choose minimal cost ending among them.
+                - Replanning:
+                  * Maintain current active path as list of cells.
+                  * When MapClassificationChangeEvent indicates new BLOCKED cell or PRESENT wall intersecting current path, call replanning if those nodes/edges appear in path.
+                - Return-to-start:
+                  * Called via dedicated MC_PathPlanRequest of type RETURN_TO_START; set goal to start cell coordinate and use normal cost model.
+                - Fastest path computation for second run:
+                  * Called after exploration complete and start cell reached; configure cost model parameters to approximate physical time (higher penalty for turns; speeds according to second-run profile).
+            </Execution>
+            <Timing>
+                - Maze is 4x8 cells (32 nodes); planning algorithm complexity is small (O(V log V + E)).
+                - Must complete within a single control-loop iteration at 20 Hz; if not, design fallback to splitting planning over multiple cycles while MC waits for completion with timeouts.
+            </Timing>
+            <Invariants>
+                - Planner only considers cells with state FREE as traversable nodes.
+                - Planner never generates edges through PRESENT walls.
+                - All returned paths begin at start cell given in request and end at a valid goal cell or in a valid goal region.
+                - When no path exists under current map, response status = NO_PATH.
+            </Invariants>
+            <Failures>
+                - No Path Exists:
+                    * Behavior: send PP_PathPlanResponse.status = NO_PATH; MC must handle as failure to proceed.
+                - Inconsistent Map:
+                    * If map API returns contradictions (e.g., neighbor but wall PRESENT), planner accepts Map behavior as authoritative; edges through PRESENT walls are not added.
+            </Failures>
+            <DerivedFrom>
+                LL--PLAN--1.1.1
+                LL--PLAN--1.1.2
+                LL--PLAN--1.1.3
+                LL--PLAN--1.1.4
+                LL--PLAN--1.1.5
+                LL--RUN--1.1.1
+                LL--RUN--1.2.2
+                LL--ENV--3.1.1
+                LL--ENV--3.1.2
+                LL--MAP--1.3.1
+                LL--MAP--1.4.1
+                LL--MAP--1.4.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--6</ID>
+            <Name>Mapping, Wall Detection, and Collision Avoidance Component</Name>
+            <Purpose>
+                Integrates sensor data with pose estimation to:
+                - Detect front walls using ultrasonic measurements and the ultrasonic uncertainty model and robot geometry.
+                - Detect side walls from infrared sensors based on alignment and sensor geometry.
+                - Apply wall proximity thresholds and hysteresis to avoid classification flip-flopping.
+                - Update grid map cell and wall states from sensor-derived detections, including marking traversed cells as FREE and inferring BLOCKED cells from PRESENT walls.
+                - Execute wall avoidance maneuvers when imminently intersecting a wall within one cell length, coordinating with Motion Control.
+                - Enforce minimum clearance margin M and manage emergency stop on imminent collision using filtered sensor data.
+                - Perform consistency checks on sensor data before altering established map classifications.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--10</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>RawSensorDataRequests</Name>
+                            <Description>
+                                Mapping uses Sensor Abstraction Layer:
+                                - get_filtered_ultrasonic(): returns (distance_cm, timestamp, valid)
+                                - get_filtered_ir(): returns (left_flag, right_flag, timestamp, valid)
+                                - get_sampling_rate_hz()
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>FilteredSensorData</Name>
+                            <Description>
+                                Provided once per control loop from Sensor Abstraction:
+                                - ultrasonic: (distance_cm, timestamp, valid_flag)
+                                - ir: (left_flag, right_flag, timestamp, valid_flag)
+                                - invalid flags already handled by replacing with safe defaults or ignoring.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--11</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PoseEstimateQueries</Name>
+                            <Description>
+                                Mapping queries Pose:
+                                - get_current_cell(): (row, col)
+                                - get_heading(): discrete heading (N,E,S,W)
+                                - get_alignment_error(): orientation deviation from nearest axis in degrees
+                                - get_cell_crossing_events(): notifications when robot enters new cell.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>CellCenterEntryNotification</Name>
+                            <Description>
+                                From Pose: indicates crossing from one cell center to adjacent cell center:
+                                - from_cell, to_cell, transition_direction.
+                                Used to mark traversed cells as FREE, update wall inference for entry face.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapUpdateRequests</Name>
+                            <Description>
+                                See CMP--3.Transmit.MapUpdateRequests:
+                                - Set wall segment state PRESENT/ABSENT based on wall detections.
+                                - Set cell states FREE when traversed; set BLOCKED for neighbors behind PRESENT walls.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapUpdateAcknowledge</Name>
+                            <Description>
+                                See CMP--3.Receive.MapUpdateAcknowledge, so Mapping knows whether update applied.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--12</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>AvoidanceAndEmergencyCommands</Name>
+                            <Description>
+                                To Motion Control:
+                                - avoidance_maneuver_request:
+                                    * type: {STOP_AND_TURN, ARC_TURN, SLOW_DOWN}
+                                    * desired_heading or turn_angle
+                                    * priority: {EMERGENCY, AVOIDANCE}
+                                - emergency_stop_request: command to override all motion and set both motor speeds to 0.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>CurrentMotionProfile</Name>
+                            <Description>
+                                From Motion Control:
+                                - current_speeds (left,right)
+                                - current_translational_speed_cm_s
+                                - current_planned_trajectory_segment (for look-ahead collision prediction).
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On each control-loop iteration:
+                  1) Retrieve filtered ultrasonic and IR sensor data via Sensor Abstraction.
+                  2) Use Pose component to determine:
+                     - current cell and heading,
+                     - whether robot is near/at cell center or in transition.
+                  3) Front wall detection:
+                     - Interpret ultrasonic distance d with uncertainty interval [d-12cm, d+12cm].
+                     - Compute expected robot-center-to-wall distance for current cell/pose using cell size=17.2cm and robot radius=5.5cm plus wall thickness 1.6cm.
+                     - If intervals intersect, classify front wall PRESENT at entry boundary between current cell and next cell in heading direction.
+                     - Apply numeric thresholds and hysteresis to avoid classification toggling:
+                       * Maintain low/high thresholds for wall vs free, update classification only if sequence of measurements crosses thresholds consistently.
+                  4) Side wall detection:
+                     - If |alignment_error| &lt;= configured tolerance (max 10 degrees), interpret left/right IR flags:
+                       * When active_flag == true, treat as side wall, using nominal 4cm distance plus 25-degree mounting angle and robot geometry to map to nearest cell boundary on left/right side.
+                  5) Cell and wall updates:
+                     - For each wall detection:
+                       * Determine map boundary index; issue MapUpdateRequests for wall segments with state PRESENT or ABSENT.
+                     - For cell traversal:
+                       * On CellCenterEntryNotification (robot successfully moves into new cell without collision):
+                         - Mark entered cell as FREE (if UNKNOWN).
+                         - Mark entry face wall as ABSENT if no blocking wall observed and robot passed through.
+                     - Blocked cell inference:
+                       * Whenever wall between current cell and neighbor is PRESENT, mark neighbor cell as BLOCKED.
+                  6) Consistency checks and reliability:
+                     - When new observation conflicts with existing map classification (e.g., sensor indicates wall where map has ABSENT or FREE):
+                       * Maintain counter of consecutive contradictory readings per cell/wall.
+                       * Only change classification after N consecutive contradictions (N configurable, default 3, 2 &lt;= N &lt;=10).
+                  7) Collision detection and avoidance:
+                     - Calculate predicted nearest wall distance along current trajectory using map and sensor measurements.
+                     - Ensure minimum clearance margin M between robot radius and walls, accounting for ultrasonic uncertainty ±12cm.
+                     - If predicted collision within one cell length:
+                       * Compute avoidance maneuver respecting robot footprint and clearance.
+                       * Issue avoidance_maneuver_request to Motion Control.
+                     - If filtered sensor data indicates obstacle within emergency distance shorter than stopping distance at current speed:
+                       * Issue emergency_stop_request (set both motor speeds to 0).
+                       * Motion Control must refrain from resuming until a new safe trajectory set.
+            </Execution>
+            <Timing>
+                - All computations performed once per control-loop iteration.
+                - Each phase (wall detection, updates, consistency checks) is O(1) with fixed maze size.
+                - Collision checks must use current motor speeds and sampling rate (10-50Hz) to ensure that computed stopping distance is less than (measured_distance - emergency_threshold - uncertainty_margin).
+            </Timing>
+            <Invariants>
+                - Wall and cell updates respect static-map invariants enforced by CMP--3 (UNKNOWN-&gt;FREE/BLOCKED, UNKNOWN-&gt;PRESENT/ABSENT only).
+                - Minimum clearance margin M is strictly enforced in collision prediction (no planned or executed ideal trajectory violates M).
+                - Emergency stop has highest priority: once triggered, no movement resumes until Motion Control acknowledges new safe trajectory setup.
+                - Valid sensor checks ensure invalid/out-of-range readings are never directly used for classification or control decisions.
+            </Invariants>
+            <Failures>
+                - Spurious Obstacle Detection:
+                    * Effect: Could invoke unnecessary emergency stop or avoidance maneuver.
+                    * Mitigation: Filtering, hysteresis, and consistency checks; classification changes require consecutive confirmations.
+                - Missed Wall Detection:
+                    * Effect: Map may remain UNKNOWN or ABSENT while a real wall exists.
+                    * Mitigation: Uncertainty model enlargement (±12cm), additional checks combining IR and ultrasonic data; repeated passes through the cell.
+                - Consistency threshold N misconfigured too high:
+                    * Effect: Map may fail to update in presence of real change or repeated mis-detections; but static environment assumption reduces risk.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.2.1
+                LL--MAP--1.2.2
+                LL--MAP--1.2.3
+                LL--MAP--1.2.4
+                LL--MAP--1.3.2
+                LL--MAP--1.4.3
+                LL--MAP--1.4.4
+                LL--RELIAB--1.1.1
+                LL--RELIAB--1.1.2
+                LL--RELIAB--1.2.1
+                LL--RELIAB--1.2.2
+                LL--INTERF--1.1.1
+                LL--INTERF--1.1.2
+                LL--INTERF--2.1.1
+                LL--INTERF--2.3.1
+                LL--INTERF--3.1.1
+                LL--INTERF--3.3.1
+                LL--INTERF--3.4.1
+                LL--HARDWARE--1.1.1
+                LL--ENV--1.2.1
+                LL--ENV--1.3.1
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--7</ID>
+            <Name>Time-Aware Planning Parameters Component</Name>
+            <Purpose>
+                Manages configuration parameters related to time-aware planning and speed safety:
+                - Maintains nominal time required to traverse one maze cell at exploration speed.
+                - Provides this parameter to exploration, path planning, and exploration status modules for remaining-time calculations.
+                - Ensures that time-aware planning avoids selecting exploration targets that cannot be reached and mapped within remaining time.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--4</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>NominalCellTraversalConfiguration</Name>
+                            <Description>
+                                See CMP--4.Receive.NominalCellTraversalConfiguration. Contains nominal_cell_traversal_ms and time-aware-planning enable flag.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>TimeLimitParameters</Name>
+                            <Description>
+                                - global_exploration_time_limit_ms (default 300000).
+                                Provided via configuration at init.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--2</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>RemainingTimeAndNominalTraversal</Name>
+                            <Description>
+                                Provided to Frontier Generation:
+                                - remaining_time_ms
+                                - nominal_cell_traversal_ms.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>TargetSelectionParameters</Name>
+                            <Description>
+                                Frontier Generation may request or update heuristic parameters:
+                                - alpha, beta weights for travel-time vs information gain.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - At system initialization:
+                  * Load nominal_cell_traversal_ms from non-volatile config or compile-time default.
+                  * Provide to Exploration Status, Planner, and Frontier Generation components on demand.
+                - No periodic processing besides parameter read queries from other components.
+            </Execution>
+            <Timing>
+                - Configuration read-only at run-time; used in O(1) queries.
+            </Timing>
+            <Invariants>
+                - nominal_cell_traversal_ms &gt; 0.
+                - Remains constant throughout mission (no runtime adjustment unless specifically allowed).
+            </Invariants>
+            <Failures>
+                - Misconfigured nominal traversal time:
+                    * If too low, targets may be accepted that cannot be reached in time; but global 5-minute time limit still enforced by Exploration Status.
+            </Failures>
+            <DerivedFrom>
+                LL--MAP--1.5.2
+                LL--MAP--1.5.3
+                LL--PLAN--1.1.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--8</ID>
+            <Name>Periodic Control Loop Scheduling Component</Name>
+            <Purpose>
+                Provides a deterministic periodic control loop that coordinates:
+                - Sensor sampling via Sensor Abstraction Layer.
+                - Map updates and mapping operations.
+                - Mission Control state machine update.
+                - Path computation updates as required.
+                - Motor command issuing via Motion Control.
+                It exposes a configurable period T, sets sensor sampling rate and control-loop frequency, and provides timing information (timestamps, durations) to other components.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--10</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>SensorSamplingTrigger</Name>
+                            <Description>
+                                On each control-loop iteration:
+                                - Trigger to sample ultrasonic and IR sensors once.
+                                - Provide sampling period based on configured rate in [10, 50] Hz.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>FilteredSensorData</Name>
+                            <Description>
+                                Received from Sensor Abstraction; see CMP--10.Transmit.FilteredSensorData.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--6</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MappingUpdateTrigger</Name>
+                            <Description>
+                                After sensor data acquisition:
+                                - Signal to Mapping component to process the new sensor readings and update map.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MappingCompletionAck</Name>
+                            <Description>
+                                Optional; indicates mapping operations complete within current cycle.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MC_Tick</Name>
+                            <Description>
+                                Once per loop; instructs Mission Control to update FSM based on latest status.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_CommandsOut</Name>
+                            <Description>
+                                Consolidated MC requests (planning, path execution) that may be processed later within the same loop.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--12</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MotionControlTick</Name>
+                            <Description>
+                                After MC and Planner updates, trigger Motion Control to issue motor_set commands for this cycle.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MotorCommands</Name>
+                            <Description>
+                                Actual motor_set(left_speed,right_speed) to be sent to hardware, limited to at most one call per loop.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - Implements a main loop with period T:
+                  while (system_running) {
+                    t_start = get_system_time_ms();
+                    1) Sample sensors through Sensor Abstraction (CMP--10).
+                    2) Update Pose (CMP--11) using differential drive kinematics and current motor commands.
+                    3) Call Mapping (CMP--6) to update map from new sensor data.
+                    4) Update Exploration Status / Time Limit (CMP--4).
+                    5) Advance Mission Control FSM (CMP--1).
+                    6) If required by MC state, call Planner (CMP--5) to compute or update paths.
+                    7) Call Motion Control (CMP--12) to compute new motor_set commands and send to motor interface.
+                    t_end = get_system_time_ms();
+                    dt = t_end - t_start;
+                    Sleep until next cycle start to maintain period T.
+                  }
+                - Ensures ordering of responsibilities per cycle as specified in requirements.
+            </Execution>
+            <Timing>
+                - Control loop period T is configurable so that:
+                    * control_loop_frequency = 1/T equals sensor sampling rate between 10 and 50 Hz (default 20 Hz).
+                    * Jitter must be within configured tolerance to maintain sensor sampling reliability.
+                - Motor command (motor_set) invoked at most once per iteration at the end of the cycle.
+            </Timing>
+            <Invariants>
+                - The order of operations within each loop iteration is fixed: sensors -&gt; mapping -&gt; mission control -&gt; planning -&gt; motion.
+                - motor_set is never called more than once per loop.
+                - Control-loop frequency equals sensor sampling frequency.
+            </Invariants>
+            <Failures>
+                - Cycle Overrun:
+                    * Condition: Execution of loop body exceeds period T.
+                    * Behavior: Next cycle starts immediately; can log overrun or reduce effective sampling rate; reliability requirements may be impacted.
+            </Failures>
+            <DerivedFrom>
+                LL--SCHED--1.1.1
+                LL--INTERF--1.1.1
+                LL--INTERF--1.2.1
+                LL--RELIAB--1.2.1
+                LL--MAP--1.1.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--9</ID>
+            <Name>Goal Region Identification and Selection Component</Name>
+            <Purpose>
+                After exploration is complete, uses the grid map to:
+                - Identify all contiguous 2x2 blocks of cells all classified FREE.
+                - Determine which of those blocks are reachable from the start cell using the Path Planner.
+                - Select as maze goal region the 2x2 FREE region minimizing path cost from start cell according to the planner cost metric.
+                - Provide selected region to Second-Run planning and Mission Control.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>GridScanForGoalRegions</Name>
+                            <Description>
+                                Reads all cells to find 2x2 contiguous FREE blocks. For each candidate region:
+                                - coordinates: (r,c), (r,c+1), (r+1,c), (r+1,c+1)
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>CellStatesForGoalSearch</Name>
+                            <Description>
+                                Provided by Map: classification of cells used by goal-region identification.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--5</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>GoalRegionSelectionQuery</Name>
+                            <Description>
+                                See CMP--5.Transmit.GoalRegionSelectionQuery for cost-based selection of candidate regions.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>GoalRegionSelectionResult</Name>
+                            <Description>
+                                See CMP--5.Receive.GoalRegionSelectionResult. Contains selected_region or empty set.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>SelectedGoalRegionToMC</Name>
+                            <Description>
+                                Data:
+                                - selected_goal_region cells (array of up to 4 (row,col) entries).
+                                Mission Control passes this to Second Run planning.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>ExplorationCompletedNotification</Name>
+                            <Description>
+                                From MC or Exploration-Status: indicates exploration completed and triggers goal region determination.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On ExplorationCompletedNotification:
+                  1) Enumerate all 2x2 cell blocks in grid:
+                     for r in 0..2, c in 0..6:
+                        candidate = {(r,c),(r,c+1),(r+1,c),(r+1,c+1)}.
+                        if all cells FREE: add to candidates.
+                  2) For each candidate region:
+                     - Use Path Planner to determine cost of optimal path from start cell to any of the 4 cells.
+                     - If Planner returns NO_PATH, discard candidate (unreachable).
+                  3) Select candidate with minimal cost; mark as selected_goal_region.
+                  4) Provide selected_goal_region to Second Run planning through MC and Path Planner.
+            </Execution>
+            <Timing>
+                - Invoked once (or rarely) after exploration complete.
+                - Complexity: small due to limited map size; may run in a single control-loop iteration.
+            </Timing>
+            <Invariants>
+                - selected_goal_region must be a 2x2 block of FREE cells reachable from start.
+                - Only one goal region selected per mission.
+            </Invariants>
+            <Failures>
+                - No candidate 2x2 FREE region:
+                    * Behavior: selected_goal_region is empty; Second Run may be skipped or treated as failure.
+                - No candidate reachable from start:
+                    * Behavior: treat as above; no second run or auto failure.
+            </Failures>
+            <DerivedFrom>
+                LL--ENV--3.1.1
+                LL--ENV--3.1.2
+                LL--PLAN--1.1.1
+                LL--PLAN--1.1.2
+                LL--RUN--1.2.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--10</ID>
+            <Name>Sensor Abstraction and Filtering Component</Name>
+            <Purpose>
+                Encapsulates low-level ultrasonic and infrared access functions and provides:
+                - Normalized sensor data structures to higher-level modules.
+                - Sensor sampling at configured rate equal to control loop frequency.
+                - Temporal filtering (moving average or median) to reduce noise.
+                - Handling of invalid/out-of-range sensor readings.
+                - Enforcement of ultrasonic uncertainty model for further processing.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>HardwareDrivers</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>UltrasonicGetDistance</Name>
+                            <Description>
+                                Wrapper over ultrasonic_get_distance(); returns raw float distance_cm in robot-forward frame or error code/NaN for invalid.
+                            </Description>
+                        </Signal>
+                        <Signal>
+                            <Name>IRGetStatus</Name>
+                            <Description>
+                                Wrappers over infrared_get_dsl_status() and infrared_get_dsr_status(); returns uint8_t 0/1 for each.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>RawHardwareSensorValues</Name>
+                            <Description>
+                                Raw values returned from hardware APIs used as input into filtering and validation pipeline.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--8</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>SensorSamplingTrigger</Name>
+                            <Description>
+                                See CMP--8.Transmit.SensorSamplingTrigger. Causes one sample of each sensor.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>SamplingRateConfig</Name>
+                            <Description>
+                                - sampling_rate_hz in [10,50] (default 20).
+                                Derived from control loop configuration.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--6</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>FilteredSensorData</Name>
+                            <Description>
+                                See CMP--6.Receive.FilteredSensorData. Provides once per loop:
+                                - ultrasonic: filtered distance_cm, timestamp, valid.
+                                - IR: left_flag, right_flag, timestamp, valid.
+                                Invalid/out-of-range readings replaced with safe defaults or marked invalid.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>SensorDataRequests</Name>
+                            <Description>
+                                Mapping asks for latest sample; data returned from internal buffers.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On each control-loop iteration:
+                  1) Acquire raw ultrasonic distance via ultrasonic_get_distance().
+                  2) Acquire raw IR statuses via infrared_get_dsl_status() and infrared_get_dsr_status().
+                  3) Validate data:
+                     - For ultrasonic: treat negative, NaN, INF, or known saturation codes as invalid.
+                     - For IR: treat values other than defined 0/1 as invalid.
+                  4) Apply temporal filtering:
+                     - Maintain sliding window of last K samples (configurable, e.g., 3-5).
+                     - For ultrasonic: compute median or moving average of valid samples; if fewer than minimum valid samples, mark measurement invalid or keep last reliable value with separate flag.
+                     - For IR: optionally majority vote over last K readings.
+                  5) For ultrasonic, associate each measurement with uncertainty interval ±12cm; store along with filtered distance.
+                  6) Publish filtered sensor data to Mapping and other consumers.
+            </Execution>
+            <Timing>
+                - Filtering computations are O(K) per cycle with small K.
+                - Sampling performed once per control-loop iteration with jitter &lt; configured tolerance.
+            </Timing>
+            <Invariants>
+                - Filtered sensor structures always contain valid timestamps from scheduling time base.
+                - Invalid/out-of-range samples never propagate as valid entries.
+            </Invariants>
+            <Failures>
+                - Persistent invalid readings:
+                    * Behavior: valid flag remains false; Mapping must treat as unknown environment ahead.
+            </Failures>
+            <DerivedFrom>
+                LL--INTERF--1.1.1
+                LL--INTERF--1.1.2
+                LL--INTERF--2.1.1
+                LL--INTERF--2.3.1
+                LL--INTERF--3.1.1
+                LL--RELIAB--1.2.1
+                LL--RELIAB--1.2.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--11</ID>
+            <Name>Pose Estimation Component</Name>
+            <Purpose>
+                Estimates robot pose at cell level:
+                - Integrates differential drive kinematics over each control-loop period using motor commands and scheduling information.
+                - Maintains discrete cell index (row, col) and heading aligned with maze axes.
+                - Corrects accumulated drift using map features (walls) and axis alignment.
+                - Detects when robot crosses from one cell center to adjacent cell center and notifies Mapping.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--12</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MotorCommandsForOdometry</Name>
+                            <Description>
+                                Pose uses latest motor_set commands and control-loop period to integrate kinematics:
+                                - left_speed, right_speed in [0,100]
+                                - T or measured dt from scheduler.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MotorSetIssued</Name>
+                            <Description>
+                                Motion Control informs Pose of motor_set values for current cycle.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--10</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PoseFeatureDetectionQueries</Name>
+                            <Description>
+                                Pose uses Mapping's wall detections indirectly by reading Mapping outputs or by using input from Mapping about cell boundaries to correct position.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>WallProximityData</Name>
+                            <Description>
+                                Data from Mapping or sensors about proximity to known walls for pose correction.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapFeatureQueries</Name>
+                            <Description>
+                                Pose looks up cell boundaries and wall positions in map to constrain state corrections.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapGeometryParameters</Name>
+                            <Description>
+                                Cell size (17.2cm), wall thickness (1.6cm), orientation info consistent with environment model.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--6</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>CellCenterEntryNotification</Name>
+                            <Description>
+                                See Mapping component; Pose indicates when cell center is crossed:
+                                - from_cell, to_cell, direction.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>PoseUsageInMapping</Name>
+                            <Description>
+                                Mapping uses get_current_cell and get_heading queries.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On each control-loop iteration:
+                  1) Compute longitudinal and rotational displacement from motor speeds and dt using differential-drive kinematics:
+                     - v_l, v_r in cm/s from speed commands and calibration.
+                     - v = (v_r + v_l)/2; omega = (v_r - v_l)/wheel_base.
+                     - Update continuous pose (x,y,theta).
+                  2) Quantize continuous pose to discrete cell (row,col) using grid coordinate system and cell size 17.2cm.
+                  3) Detect if quantized cell differs from previous cell; if so, generate CellCenterEntryNotification.
+                  4) Pose correction:
+                     - When Mapping indicates robot is aligned with maze axes and near known walls, adjust theta to nearest axis orientation {0,90,180,270 deg}.
+                     - Adjust (x,y) to nearest consistent cell center given wall distances and robot radius 5.5cm.
+                  5) Update heading enumeration accordingly.
+            </Execution>
+            <Timing>
+                - All operations O(1) per cycle.
+                - Uses dt from Scheduling; dt may vary but is bounded by jitter tolerance.
+            </Timing>
+            <Invariants>
+                - heading always one of {N,E,S,W} after correction step when alignment condition met.
+                - cell indices remain within 0..3 and 0..7.
+            </Invariants>
+            <Failures>
+                - Kinematic model error:
+                    * Over time, drift accumulates; correction with walls mitigates.
+            </Failures>
+            <DerivedFrom>
+                LL--POSE--1.1.1
+                LL--POSE--1.1.2
+                LL--POSE--1.1.3
+                LL--HARDWARE--2.1.1
+                LL--HARDWARE--2.1.2
+                LL--SCHED--1.1.1
+                LL--MAP--1.3.1
+                LL--MAP--1.2.1
+                LL--MAP--1.2.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--12</ID>
+            <Name>Motion Control and Motor Interface Component</Name>
+            <Purpose>
+                Translates planned cell paths and avoidance requests into motor_set commands:
+                - Implements cell-center motion primitives (move straight one cell, turn in place).
+                - Computes trajectories based on differential drive kinematics and cell/wall geometry.
+                - Applies speed limiting for safety, including maximum translational speed below hardware limit.
+                - Applies rate limiting on speed change per control cycle.
+                - Monitors for emergency stop and collision conditions (from Mapping and Reliability modules).
+                - Executes exploration, return-to-start, and second-run paths with different motion profiles (speeds).
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>HardwareDrivers</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>motor_set</Name>
+                            <Description>
+                                Hardware API to control differential drive motors:
+                                - motor_set(uint8_t left_speed, uint8_t right_speed) where range is [0,100].
+                                Invoked at most once per control loop iteration by this component.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MotorHardwareStatus</Name>
+                            <Description>
+                                Optionally, hardware-level status if accessible (e.g., encoder ticks) for improved motion profiling.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>PathExecutionStatus</Name>
+                            <Description>
+                                See MC component. Contains:
+                                - path_id, segment_index
+                                - status: IN_PROGRESS, REACHED_GOAL, COLLISION_EMERGENCY_STOP, PATH_INVALIDATED, PLANNING_FAILURE
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MC_PathExecutionCommand</Name>
+                            <Description>
+                                See MC component. Motion Control begins executing the specified path in the specified mode.
+                            </Description>
+                        </Signal>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--6</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>CurrentMotionProfile</Name>
+                            <Description>
+                                See Mapping component; used for predicting collisions.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>AvoidanceAndEmergencyCommands</Name>
+                            <Description>
+                                See Mapping component. Motion Control must honor emergency_stop_request immediately.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--8</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MotionControlTick</Name>
+                            <Description>
+                                See CMP--8.Transmit.MotionControlTick. Triggers Motion Control operations once per control loop.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>ControlLoopPeriodInfo</Name>
+                            <Description>
+                                Provides T and dt for converting motor_set steps to physical distances for primitives and speed limits.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - Motion primitives:
+                  * For move forward one cell:
+                    - Determine required travel distance: approx 17.2cm from cell center to next.
+                    - Given nominal speed v and cycle time T, compute number of cycles N such that N * v * T approximates 17.2cm.
+                    - For N cycles, set motor_set(left_speed,right_speed) with equal speeds; after N cycles, stop or proceed to next primitive.
+                  * For turning in place:
+                    - Compute duration required to rotate 90 degrees based on motor speed difference and wheel base.
+                    - For M cycles, set motor_set(l,-l) or comparable values.
+                - Speed limitation:
+                  * Use configured max translational speed v_max &lt; 200cm/s, computed using:
+                    - sensor sampling rate
+                    - emergency_stop threshold
+                    - ultrasonic uncertainty model ±12cm.
+                  * Guarantee stopping distance smaller than emergency detection distance.
+                - Rate limiting:
+                  * Keep previous left/right speeds; enforce |new-left_speed - prev-left_speed| &lt;= delta_left_max, same for right.
+                - Execution per control loop:
+                  1) If emergency_stop_request active:
+                     - Immediately issue motor_set(0,0).
+                     - Set internal state = EMERGENCY_STOPPED; path execution paused.
+                  2) Else if avoidance maneuver requested:
+                     - Override planned path temporarily; execute avoidance primitive sequence.
+                  3) Else:
+                     - Follow active path:
+                       * Determine next motion primitive step in sequence; send motor_set accordingly.
+                       * Monitor Pose and Mapping to check for path completion or invalidation.
+                 4) Report PathExecutionStatus to MC.
+            </Execution>
+            <Timing>
+                - One motor_set call per control loop at end of cycle.
+                - Computation is O(1) per cycle; primitives may adjust state machines internal to this component.
+            </Timing>
+            <Invariants>
+                - motor_set is never invoked more than once per control loop cycle.
+                - Commanded speeds always obey:
+                    * 0 &lt;= left_speed,right_speed &lt;= 100.
+                    * translational_speed_cm_s &lt;= configured v_max for safety.
+                    * Rate-of-change per cycle limited by configurable max increment/decrement.
+            </Invariants>
+            <Failures>
+                - Emergency stop due to imminent collision:
+                    * Behavior: immediate motor_set(0,0), status COLLISION_EMERGENCY_STOP; path remains unfinished.
+                - Path invalidation:
+                    * Condition: Map or Planner identifies segments invalid due to new PRESENT wall or BLOCKED cell.
+                    * Behavior: Motion Control stops path execution and signals PATH_INVALIDATED to MC.
+            </Failures>
+            <DerivedFrom>
+                LL--INTERF--1.2.1
+                LL--INTERF--1.2.2
+                LL--HARDWARE--2.1.1
+                LL--HARDWARE--2.1.2
+                LL--HARDWARE--2.3.1
+                LL--HARDWARE--2.3
+                LL--RUN--1.1.2
+                LL--RUN--1.2.3
+                LL--RELIAB--1.1.1
+                LL--RELIAB--1.1.2
+            </DerivedFrom>
+        </Component>
+
+        <Component>
+            <ID>CMP--13</ID>
+            <Name>Initialization Module Component</Name>
+            <Purpose>
+                Performs system initialization and signals when all hardware and software modules are ready:
+                - Runs hardware init (sensors, motors).
+                - Runs software init (map initialization, configuration load, state resets).
+                - Sets or publishes INIT_COMPLETED for Mission Control.
+            </Purpose>
+            <ConnectedComponents>
+                <ConnectedComponent>
+                    <Identifier>CMP--3</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>MapInitializationTrigger</Name>
+                            <Description>
+                                Signal to Grid Map to perform Unknown Initialization and Start Cell Initialization.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MapInitDone</Name>
+                            <Description>
+                                Ack from Map when initialization complete.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--1</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>INIT_COMPLETED_Indication</Name>
+                            <Description>
+                                After all init tasks done, this flag/event is set/published in main execution context.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>MCAwaitInit</Name>
+                            <Description>
+                                No explicit signal from MC; MC simply waits for flag.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+                <ConnectedComponent>
+                    <Identifier>CMP--8</Identifier>
+                    <Transmit>
+                        <Signal>
+                            <Name>ControlLoopStartCommand</Name>
+                            <Description>
+                                After initialization completed, instruct scheduler to begin periodic control loop.
+                            </Description>
+                        </Signal>
+                    </Transmit>
+                    <Receive>
+                        <Signal>
+                            <Name>SchedulerInit</Name>
+                            <Description>
+                                Called by init module to set initial T and start control loop.
+                            </Description>
+                        </Signal>
+                    </Receive>
+                </ConnectedComponent>
+            </ConnectedComponents>
+            <Execution>
+                - On system boot:
+                  1) Initialize hardware: sensors, motors, timers.
+                  2) Initialize software modules:
+                     - Grid Map (CMP--3): Unknown Initialization and Start Cell Setup.
+                     - Pose (CMP--11) default to start cell.
+                     - Sensor Abstraction (CMP--10) filter buffers.
+                  3) Load configuration: time limits, nominal traversal, speeds, thresholds, N for consistency checks, M margin.
+                  4) Set INIT_COMPLETED flag or publish corresponding event.
+                  5) Start periodic control loop via Scheduler.
+            </Execution>
+            <Timing>
+                - Runs once before main loop.
+            </Timing>
+            <Invariants>
+                - INIT_COMPLETED is not set before all dependencies are initialized.
+                - INIT_COMPLETED is set exactly once per system startup.
+            </Invariants>
+            <Failures>
+                - Initialization failure in any component:
+                    * Behavior: Do not set INIT_COMPLETED; may signal error externally and avoid starting control loop.
+            </Failures>
+            <DerivedFrom>
+                LL--INIT--1.1.1
+                LL--MAP--1.3.3
+                LL--MAP--1.3.4
+                LL--ENV--1.1.1
+            </DerivedFrom>
+        </Component>
+    </Components>
+
+    <StateMachines version="1">
+        <StateMachine>
+            <ID>FSM--1</ID>
+            <OfComponent>CMP--1</OfComponent>
+            <States>
+                <State>
+                    <Name>IDLE</Name>
+                    <StateAction>
+                        - Monitor INIT_COMPLETED indication.
+                        - Monitor SensorValidityStatus; ensure at least one valid ultrasonic and IR set.
+                        - Do not issue any path or motion commands.
+                        - Reset exploration-related timers and flags when mission is reset.
+                    </StateAction>
+                </State>
+                <State>
+                    <Name>EXPLORE</Name>
+                    <StateAction>
+                        - Periodically (each control loop) request/update frontier set from Frontier Generation.
+                        - Select exploration target using heuristic that considers travel-time estimate and expected information gain while respecting remaining exploration time.
+                        - Request path from Planner to selected frontier target if no current valid path.
+                        - Command Motion Control to execute exploration path (cell-by-cell).
+                        - Monitor Exploration Status events:
+                            * EXPLORATION_COMPLETED: set ‘exploration_completed’ flag.
+                            * EXPLORATION_TIMEOUT: set ‘exploration_timeout’ flag.
+                        - If current exploration path becomes invalid due to new map info, request replanning.
+                    </StateAction>
+                </State>
+                <State>
+                    <Name>RETURN_TO_START</Name>
+                    <StateAction>
+                        - Invoke Return-to-Start service:
+                            * Compute path from current cell to fixed start cell using Planner.
+                        - Command Motion Control to execute return path.
+                        - Monitor PathExecutionStatus:
+                            * On REACHED_GOAL at start cell: set ‘returned_to_start’ flag.
+                            * On NO_PATH or repeated failure: set ‘return_failed’ flag.
+                    </StateAction>
+                </State>
+                <State>
+                    <Name>SECOND_RUN</Name>
+                    <StateAction>
+                        - When first entering:
+                            * Obtain goal region selection from Goal Region component.
+                            * Configure Planner for time-optimal second-run cost model.
+                            * Request fastest path from start cell to goal region.
+                        - Command Motion Control to execute fastest path with higher speed profile respecting safety constraints.
+                        - Monitor path execution:
+                            * If robot reaches any FREE goal cell without collision: set second_run_status = SUCCESS.
+                            * On emergency stop, path failure, or inability to plan: set second_run_status = FAILURE.
+                    </StateAction>
+                </State>
+                <State>
+                    <Name>COMPLETED</Name>
+                    <StateAction>
+                        - Ensure no new motion commands are issued (Motion Control is commanded to stop or maintain safe zero-speed).
+                        - Latch final second_run_status for external reporting.
+                        - Optionally allow system to reset mission on external command, transitioning back to IDLE.
+                    </StateAction>
+                </State>
+            </States>
+            <Transitions>
+                <Transition>
+                    <From>IDLE</From>
+                    <To>EXPLORE</To>
+                    <Trigger>
+                        - INIT_COMPLETED indication becomes true AND
+                        - SensorValidityStatus indicates:
+                            * has_valid_ultrasonic == true AND
+                            * has_valid_ir == true (both left_flag and right_flag present at least once).
+                        Evaluated in each control-loop iteration.
+                    </Trigger>
+                    <Guard>
+                        - Mission not already started (internal flag mission_started == false).
+                    </Guard>
+                    <TransitionAction>
+                        - Set mission_started = true.
+                        - Notify Exploration Status of entering EXPLORE (start exploration timer).
+                        - Initialize exploration-related counters and flags (exploration_completed = false, exploration_timeout = false).
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>EXPLORE</From>
+                    <To>RETURN_TO_START</To>
+                    <Trigger>
+                        - Receipt of either:
+                            * EXPLORATION_COMPLETED event (map completeness), OR
+                            * EXPLORATION_TIMEOUT event (global 5-min limit).
+                        from Exploration-Status component via event queue.
+                    </Trigger>
+                    <Guard>
+                        - At least one of exploration_completed or exploration_timeout flags is true.
+                    </Guard>
+                    <TransitionAction>
+                        - Notify Exploration Status of leaving EXPLORE.
+                        - Invoke Return-to-Start service (Planner) with trigger_reason = MAP_COMPLETE or GLOBAL_TIMEOUT.
+                        - Set current_mode to RETURN_MODE for Motion Control.
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>RETURN_TO_START</From>
+                    <To>SECOND_RUN</To>
+                    <Trigger>
+                        - PathExecutionStatus from Motion Control indicates:
+                            * status == REACHED_GOAL AND
+                            * current_cell == start_cell.
+                        - Exploration has been declared complete (EXPLORATION_COMPLETED previously received, not only TIMEOUT).
+                    </Trigger>
+                    <Guard>
+                        - return_failed == false.
+                    </Guard>
+                    <TransitionAction>
+                        - Set returned_to_start = true.
+                        - Notify Second-Run initialization that start cell reached.
+                        - Request Goal Region selection and configure Planner for fastest path.
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>RETURN_TO_START</From>
+                    <To>COMPLETED</To>
+                    <Trigger>
+                        - Return path planning or execution fails:
+                            * Planner responds NO_PATH for RETURN_TO_START, OR
+                            * Motion Control reports repeated COLLISION_EMERGENCY_STOP or PATH_INVALIDATED leading to abort.
+                    </Trigger>
+                    <Guard>
+                        - return_failed == true OR (retry_count &gt;= allowed_retries).
+                    </Guard>
+                    <TransitionAction>
+                        - Command Motion Control to stop (motor_set(0,0)).
+                        - Set second_run_status = FAILURE.
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>SECOND_RUN</From>
+                    <To>COMPLETED</To>
+                    <Trigger>
+                        - Second run completes or aborts:
+                            * PathExecutionStatus indicates REACHED_GOAL within goal region (success), OR
+                            * PathExecutionStatus indicates COLLISION_EMERGENCY_STOP, PATH_INVALIDATED with no successful replanning, or planning failure (failure).
+                    </Trigger>
+                    <Guard>
+                        - second_run_status in {SUCCESS, FAILURE}.
+                    </Guard>
+                    <TransitionAction>
+                        - Command Motion Control to stop (motor_set(0,0)).
+                        - Latch second_run_status in MC for external reporting.
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>EXPLORE</From>
+                    <To>COMPLETED</To>
+                    <Trigger>
+                        - Severe unrecoverable failure detected during exploration (e.g., repeated emergency stops with no possible path, severe sensor failure).
+                    </Trigger>
+                    <Guard>
+                        - Internal flag fatal_error == true.
+                    </Guard>
+                    <TransitionAction>
+                        - Command Motion Control to stop (motor_set(0,0)).
+                        - Set second_run_status = FAILURE.
+                    </TransitionAction>
+                </Transition>
+                <Transition>
+                    <From>COMPLETED</From>
+                    <To>IDLE</To>
+                    <Trigger>
+                        - External reset command or system restart.
+                    </Trigger>
+                    <Guard>
+                        - Allowed only after mission fully stopped and external command available.
+                    </Guard>
+                    <TransitionAction>
+                        - Reset all internal MC flags, clear event queues as appropriate, re-enter initialization flow.
+                    </TransitionAction>
+                </Transition>
+            </Transitions>
+            <DerivedFrom>
+                LL--MAP--1.1.1
+                LL--MAP--1.1.2
+                LL--MAP--1.1.3
+                LL--MAP--1.1.4
+                LL--MAP--1.5.1
+                LL--RUN--1.1.1
+                LL--RUN--1.1.2
+                LL--RUN--1.2.1
+                LL--RUN--1.2.2
+                LL--RUN--1.2.3
+                LL--RUN--1.2.4
+                LL--RUN--1.2.5
+                LL--EVENT--1.1.1
+                LL--INIT--1.1.1
+            </DerivedFrom>
+        </StateMachine>
+    </StateMachines>
+
+    <AdditionalData version="1">
+        <Data>
+            <ID>DAT--1</ID>
+            <Content>
+                Coordinate System Definition:
+                - Maze grid has 4 rows (0..3) and 8 columns (0..7).
+                - Row index increases from start row toward far end; column index increases from left to right when viewed from start.
+                - Start cell is fixed at (row=0, col=0).
+                - Heading enumeration:
+                    * NORTH: -row direction
+                    * EAST: +col direction
+                    * SOUTH: +row direction
+                    * WEST: -col direction.
+                - Wall indexing:
+                    * Horizontal walls: indices (r,c,H) between (r,c) and (r+1,c).
+                    * Vertical walls: indices (r,c,V) between (r,c) and (r,c+1).
+            </Content>
+            <DerivedFrom>
+                LL--ENV--1.1.1
+                LL--ENV--1.4.1
+                LL--MAP--1.3.1
+            </DerivedFrom>
+        </Data>
+
+        <Data>
+            <ID>DAT--2</ID>
+            <Content>
+                Cell and Wall Enumeration Types (language-agnostic):
+                - enum CellState { UNKNOWN = 0, FREE = 1, BLOCKED = 2 };
+                - enum WallState { W_UNKNOWN = 0, PRESENT = 1, ABSENT = 2 };
+                - enum MissionState { IDLE=0, EXPLORE=1, RETURN_TO_START=2, SECOND_RUN=3, COMPLETED=4 };
+                - enum PathStatus { SUCCESS=0, NO_PATH=1 };
+                - enum PathExecutionStatusEnum { IN_PROGRESS=0, REACHED_GOAL=1, COLLISION_EMERGENCY_STOP=2, PATH_INVALIDATED=3, PLANNING_FAILURE=4 };
+                - enum SecondRunStatus { NOT_RUN=0, SUCCESS=1, FAILURE=2, ABORTED=3 };
+            </Content>
+            <DerivedFrom>
+                LL--MAP--1.3.5
+                LL--MAP--1.4.1
+                LL--MAP--1.4.2
+                LL--MAP--1.1.1
+                LL--RUN--1.2.5
+            </DerivedFrom>
+        </Data>
+
+        <Data>
+            <ID>DAT--3</ID>
+            <Content>
+                Ultrasonic Uncertainty and Clearance Configuration:
+                - Ultrasonic uncertainty interval: ±12 cm, applied to measured distance d as [d-12, d+12].
+                - Robot modeled as circle radius R = 5.5 cm.
+                - Minimum clearance margin M: configurable value M &gt; 0 cm (e.g., default 2-4 cm).
+                - Emergency stop detection:
+                    * emergency_threshold_distance = f(current_speed, sensor_sampling_rate, uncertainty_interval).
+                    * Condition for emergency stop:
+                        if (d - 12cm) &lt;= stopping_distance + M then immediate stop.
+                - Map-based clearance checks use:
+                    * wall positions at cell boundaries (distance approx (cell_size/2) - wall_thickness/2 - R).
+            </Content>
+            <DerivedFrom>
+                LL--INTERF--2.3.1
+                LL--RELIAB--1.1.1
+                LL--RELIAB--1.1.2
+                LL--HARDWARE--1.1.1
+                LL--ENV--1.2.1
+                LL--ENV--1.3.1
+            </DerivedFrom>
+        </Data>
+
+        <Data>
+            <ID>DAT--4</ID>
+            <Content>
+                Sensor Filtering Parameters and Algorithms:
+                - Sampling rate: configurable samplerate_hz in [10,50], default 20 Hz; T = 1000 / samplerate_hz ms.
+                - Ultrasonic filter:
+                    * Window size K_ultra (default 3).
+                    * Use median filter over last K_ultra valid readings.
+                - IR filter:
+                    * Window size K_ir (default 3).
+                    * Use majority vote over last K_ir readings for each sensor (left/right).
+                - Consistency check parameter N:
+                    * N in [2,10], default 3.
+                    * For cell/wall classification reversal attempts, require N consecutive contradictory readings before update.
+            </Content>
+            <DerivedFrom>
+                LL--RELIAB--1.2.1
+                LL--RELIAB--1.2.2
+            </DerivedFrom>
+        </Data>
+
+        <Data>
+            <ID>DAT--5</ID>
+            <Content>
+                Exploration Target Selection Heuristic Details:
+                - Travel-time component:
+                    * Use Path Planner's cost model; convert path cost to estimated time:
+                        estimated_time_ms = cost_units * nominal_cell_traversal_ms / base_cost_unit.
+                - Information gain estimation:
+                    * For candidate frontier cell f:
+                        - Look at its 4-neighborhood; count UNKNOWN cells and walls within 1-cell radius.
+                        - expected_new_cells = count of UNKNOWN neighbors not yet visible from other frontiers.
+                - Combined heuristic:
+                    * H(f) = alpha * estimated_time_ms - beta * expected_new_cells.
+                    * alpha &gt; 0, beta &gt;= 0 configurable.
+                - Time constraint:
+                    * Only consider f if estimated_time_ms &lt;= remaining_time_ms.
+            </Content>
+            <DerivedFrom>
+                LL--MAP--1.1.5
+                LL--PLAN--1.1.2
+                LL--MAP--1.5.2
+                LL--MAP--1.5.3
+            </DerivedFrom>
+        </Data>
+
+        <Data>
+            <ID>DAT--6</ID>
+            <Content>
+                Motion Profile Parameters:
+                - Exploration mode:
+                    * target_speed_explore_cm_s: lower speed for safe mapping.
+                - Return-to-start mode:
+                    * target_speed_return_cm_s: moderate speed, similar to exploration but can be slightly higher.
+                - Second-run mode:
+                    * target_speed_second_run_cm_s: highest auto speed, still &lt; v_max computed for safety.
+                - v_max calculation:
+                    * v_max &lt; 200 cm/s hardware limit.
+                    * Choose v_max such that:
+                        stopping_distance(v_max) + uncertainty_margin + M &lt; min(expected_wall_distance) over planning horizon.
+            </Content>
+            <DerivedFrom>
+                LL--HARDWARE--2.3.1
+                LL--RUN--1.2.3
+                LL--RELIAB--1.1.2
+            </DerivedFrom>
+        </Data>
+    </AdditionalData>
+</Design>

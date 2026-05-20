@@ -1,0 +1,8 @@
+Here are the two documents
+{{LLRAs}}
+{{Design}}
+
+Check this Design and answer with Findings
+
+{send}
+{store} <Design\Documents\Findings\Design Findings_{{iteration}}<df>.xml>

@@ -1,0 +1,265 @@
+<Findings version="1" source="LLR" source_version="1">
+    <Finding ID="LLR--1--1">
+        <ItemID>LL-MAP-1.1.1</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+The EXPLORE and SECOND_RUN states in the exploration state machine are described only in terms of high-level behavior (“autonomously explores the unknown maze”, “second run”) without specifying concrete responsibilities, inputs/outputs, or interaction patterns. This makes it difficult to derive concrete architectural components or interfaces from this requirement alone.
+        </Description>
+        <Solution>
+Extend LL-MAP-1.1.1 (or add additional LLRs) to specify, per state, which modules it coordinates (e.g., mapping, planning, motion control), what events cause transitions, and what information is exchanged (e.g., map completion signal, timeout signal, second-run result). For instance, define that in EXPLORE the state machine shall periodically request frontier targets from the planner and motion primitives from the motion controller, and that COMPLETED is entered after receiving a second-run status output.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--2">
+        <ItemID>LL-MAP-1.1.3</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+LL-MAP-1.1.3 refines HL--ENV--2.1 (“Static Maze Environment”) by using the completeness of the map as a stop condition, but it does not explicitly refine HL--MAP--1.5 (“Time Constraint”), even though it introduces a global exploration time limit of 5 minutes (“whichever occurs first”). This duplicates the time-limit behavior specified in LL-MAP-1.5.1 and creates redundant and partially overlapping timing logic.
+        </Description>
+        <Solution>
+Either (a) add a &lt;Refines&gt;HL--MAP--1.5&lt;/Refines&gt; relationship to LL-MAP-1.1.3 and clarify that it uses the global time limit defined in LL-MAP-1.5.1, or (b) remove the explicit “5 minutes” wording from LL-MAP-1.1.3 and instead reference the time limit indirectly (e.g., “or when the global exploration time limit specified in LL-MAP-1.5.1 is reached”). Ensure there is a single source of truth for the 5-minute limit at LLR level.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--3">
+        <ItemID>LL-MAP-1.1.3</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+The requirement states that exploration terminates when “the internal map contains a classification (free or blocked) for every cell and inter-cell wall location of the 4x8 maze grid”. However, there is no LLR that clearly specifies how completeness of “every cell and inter-cell wall” shall be evaluated (e.g., criteria for accepting a wall as known free/blocked vs. still unknown). Without such criteria, it is ambiguous how the exploration module can architecturally depend on a well-defined “map complete” condition.
+        </Description>
+        <Solution>
+Introduce a dedicated LLR describing map-completeness criteria, for example: “The software shall define the map as complete when no cell or wall segment in the grid map remains in state UNKNOWN.” Optionally, refine this further to handle unreachable cells (e.g., dead areas behind walls). Reference this new LLR from LL-MAP-1.1.3 via a &lt;DependsOn&gt; relationship and/or incorporate an explicit notion of UNKNOWN-free map into LL-MAP-1.3.x.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--4">
+        <ItemID>LL-MAP-1.1.4</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The exploration frontier definition uses “unknown cells adjacent (4-neighborhood) to at least one free cell” but does not specify which module is responsible for generating and maintaining the frontier set, nor how often frontiers are recalculated. This may be sufficient as behavior, but from an architecture-design perspective, the requirement does not make explicit whether frontier generation is a separate component or integrated into planning/mapping.
+        </Description>
+        <Solution>
+Clarify the responsibility and interface for frontier generation, either by extending LL-MAP-1.1.4 or introducing a new LLR, e.g., “The software shall implement a frontier-generation module that, upon request, returns all cells in state UNKNOWN that are 4-neighbors of at least one FREE cell in the grid map.” This supports a clearer component boundary for architecture design.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--5">
+        <ItemID>LL-MAP-1.1.5</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The heuristic is described qualitatively (“minimizes an estimate of travel time”, “preferring frontiers that increase the number of newly observable cells”) without quantitative ties to the path cost metric defined in LL-PLAN-1.1.2. This leaves ambiguity on whether the heuristic should use the same cost model as path planning, potentially complicating architectural separation between planner and exploration logic.
+        </Description>
+        <Solution>
+Specify that the heuristic shall use the same traversal cost definition as LL-PLAN-1.1.2 (or explicitly differentiate if intentional). For example: “The software shall compute the estimated travel-time component of the heuristic using the same cell-to-cell traversal cost model defined in LL-PLAN-1.1.2.” This supports consistent interfaces between exploration and planner components.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--6">
+        <ItemID>LL-MAP-1.2.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The phrase “after accounting for ±12 cm sensor accuracy” is underspecified: it does not state how this accounting is to be implemented (e.g., interval overlap test, probabilistic margin). This may lead to inconsistent implementations and makes it harder to design a reusable sensor interpretation module.
+        </Description>
+        <Solution>
+Refine the requirement or add an additional LLR to specify the method, e.g., “The software shall treat a measured distance d as a valid front wall observation if the interval [d-12, d+12] cm intersects the expected robot-center-to-wall distance interval [Xmin, Xmax] for the current pose and cell geometry.” This supports precise testability and architectural encapsulation of the interpretation logic.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--7">
+        <ItemID>LL-MAP-1.3.2</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+The requirement states that the software updates the grid map “while the robot is located in a cell center or during cell transitions”, but it does not define how robot pose (cell center vs. transition) is determined nor which component provides this information. This creates an architectural gap between motion/odometry and mapping.
+        </Description>
+        <Solution>
+Introduce explicit LLR(s) that define a pose-estimation/odometry component and the interface it provides to the mapping module (e.g., “The software shall maintain an estimate of the current cell index and intra-cell offset, and shall provide notifications on entry into a new cell center”). Then, reference these LLRs from LL-MAP-1.3.2 via &lt;DependsOn&gt; or refine relationships as appropriate.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--8">
+        <ItemID>LL-MAP-1.3.5</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The phrase “unless explicitly reset” references a reset behavior that is not defined anywhere in the LLR set. It is unclear what “reset” means (global mission reset, local cell re-evaluation, mode change) or which module triggers it.
+        </Description>
+        <Solution>
+Either (a) remove “unless explicitly reset” to keep the map truly immutable for a mission, or (b) add one or more LLRs that specify the reset mechanism (conditions, responsible component, and scope of reset) and reference these from LL-MAP-1.3.5.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--9">
+        <ItemID>LL-MAP-1.4.3</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement states “and no subsequent sensor evidence contradicts the free classification” without specifying what constitutes contradictory evidence or the decision rule. Given LL-RELIAB-1.2.x already handles noisy sensors, this creates redundancy and possible inconsistency between classification and noise-handling logic.
+        </Description>
+        <Solution>
+Align LL-MAP-1.4.3 with LL-RELIAB-1.2.1 and LL-RELIAB-1.2.2 by referencing a shared definition of “contradictory evidence”. For example, “contradictory evidence” could be defined in LL-RELIAB-1.2.2 as “N consecutive sensor readings that indicate a wall where the map currently stores FREE”. Reference this definition from LL-MAP-1.4.3 or move the phrase there and keep LL-MAP-1.4.3 purely map-focused.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--10">
+        <ItemID>LL-MAP-1.5.2</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+“Typical traversal duration per cell” is not defined anywhere in the LLR set; no requirement specifies how this typical value is obtained (configured constant, learned estimate, based on commanded speeds). This vagueness reduces testability and complicates architecture design of the time-awareness component.
+        </Description>
+        <Solution>
+Add an LLR that defines how typical traversal duration is determined and exposed, e.g., “The software shall maintain a configurable parameter representing the nominal time to traverse one cell at exploration speed, which shall be used by time-aware planning for its remaining-time estimates.” Then reference this parameter in LL-MAP-1.5.2.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--11">
+        <ItemID>LL-PLAN-1.1.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement allows “such as Dijkstra or A*” but does not specify whether diagonal moves are allowed or forbidden, nor whether the grid connectivity is strictly 4-connected. While other LLRs tend to imply 4-neighborhood, this is not explicit here, leaving room for misinterpretation at architecture level.
+        </Description>
+        <Solution>
+Specify the connectivity explicitly, for example: “The path planning algorithm shall operate on a 4-connected grid, only allowing moves between orthogonally adjacent FREE cells that are not separated by PRESENT walls.” This aligns with the rest of the map/exploration assumptions.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--12">
+        <ItemID>LL-PLAN-1.1.2</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement states “each move between adjacent FREE cells has a non-negative cost” but does not constrain whether different moves (e.g., straight vs. turn) should have different costs or if costs are uniform. This interacts directly with “fastest path” in LL-RUN-1.2.2 and may cause inconsistent interpretations.
+        </Description>
+        <Solution>
+Clarify whether the default cost model is uniform or incorporates motion/turn penalties, and specify how LL-RUN-1.2.2 may modify or parameterize this model for the second run. For example, define a base cost model here and let LL-RUN-1.2.2 specify a particular parametrization targeting minimal time.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--13">
+        <ItemID>LL-RUN-1.1.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The trigger “upon completion of exploration or timeout” references exploration completion and timeout but there is no explicit LLR defining which component publishes these events nor the interface to the return-to-start logic. This reduces traceability for architecture design between the exploration controller and the return/navigation modules.
+        </Description>
+        <Solution>
+Introduce an LLR specifying event signaling between exploration/time management and the return module, e.g., “The software shall publish events EXPLORATION_COMPLETED and EXPLORATION_TIMEOUT to which the return-to-start module subscribes to initiate return path computation.” Reference this from LL-RUN-1.1.1.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--14">
+        <ItemID>LL-RUN-1.2.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+LL-RUN-1.2.1 refines HL--RUN--1.1 as well as HL--RUN--1.2, but HL--RUN--1.2 already depends on HL--RUN--1.3 for definition of the fastest path. Having LL-RUN-1.2.1 refine HL--RUN--1.1 (Return to Start) mixes responsibilities of the first and second run at LLR level, potentially blurring architectural separation between exploration/return and second run.
+        </Description>
+        <Solution>
+Restrict LL-RUN-1.2.1 to refine only HL--RUN--1.2 (and possibly HL--RUN--1.3 if necessary) unless there is a justified reason for it to refine HL--RUN--1.1. If the behavior is indeed shared, clarify in the requirement that the same return-to-start functionality is reused for second-run initialization and document the shared module boundaries explicitly.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--15">
+        <ItemID>LL-RELIAB-1.1.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The minimum clearance requirement does not specify a numeric margin or how it relates to uncertainties in pose and wall position. This makes it insufficiently precise to drive architectural decisions on safety margins and path-geometry constraints.
+        </Description>
+        <Solution>
+Define the clearance margin in terms of configurable parameters and uncertainty model, for example: “The software shall enforce a configurable minimum clearance margin M &gt; 0 cm between the robot’s 5.5 cm radius footprint and wall positions, where M shall be selected to cover estimated worst-case pose and wall localization errors.” Optionally tie M to the uncertainty defined in LL-INTERF-2.3.1.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--16">
+        <ItemID>LL-RELIAB-1.2.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement mandates “sample at a fixed rate” but does not state the rate, acceptable tolerance, or whether the rate is configurable. Without this, it is difficult to design timing and scheduling aspects of the architecture.
+        </Description>
+        <Solution>
+Specify that the sampling rate is either a configurable parameter within a given range (e.g., 10–50 Hz) or give a nominal value and tolerance. For example: “The software shall sample ultrasonic and infrared sensors at a configurable rate in the range [10, 50] Hz, with default 20 Hz, with timing jitter not exceeding X ms.”
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--17">
+        <ItemID>LL-INTERF-1.1.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The “normalized sensor data structures” are not characterized: there is no requirement specifying fields, units, or coordinate frames. This leaves too much latitude for implementation and hinders consistent architectural interfacing between sensor and higher-level modules.
+        </Description>
+        <Solution>
+Add or extend an LLR to define the content of the normalized sensor data (e.g., distance in cm in robot frame, binary wall flags, timestamps) and their units and frames. For example: “The sensor abstraction layer shall expose ultrasonic data as (distance_cm, timestamp) and IR data as (left_flag, right_flag, timestamp) in well-defined units.”
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--18">
+        <ItemID>LL-INTERF-1.2.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement states that the software shall control motors “exclusively via motor_set(...)” but does not define the frequency or timing constraints for issuing commands. Architecturally, this prevents clear design of control loops and real-time behavior.
+        </Description>
+        <Solution>
+Either here or in an additional LLR, specify a maximum and/or nominal rate for motor_set calls, or specify that the control loop frequency is configurable in a defined range. Example: “The motion control module shall invoke motor_set at a nominal control frequency of F Hz (configurable), not exceeding a maximum update rate of F_max Hz.”
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--19">
+        <ItemID>LL-HARDWARE-2.1.1</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+The kinematic estimation requirement defines using motor speed commands to estimate pose but does not specify any feedback or correction (e.g., using sensor observations or reset when entering cell centers). Given the relatively high sensor noise and non-constant velocity assumptions, pure dead-reckoning is likely insufficient, and architecture design needs at least a definition of whether pose is “open-loop only” or fused with sensing.
+        </Description>
+        <Solution>
+Add LLRs specifying whether and how pose estimation shall be corrected using sensor-based events (e.g., alignment on cell boundaries, wall-based localization) or, if intentionally open-loop, state that limitation explicitly so dependency on approximate pose is clear. For example: “The software shall correct accumulated orientation error when aligning with maze axes based on wall detections.”
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--20">
+        <ItemID>LL-ENV-3.1.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement defines the goal region as “contiguous 2x2 block of cells that are all classified as FREE and reachable from the start cell”, but it does not specify when in the mission this identification shall be performed (e.g., periodically during exploration vs. after mapping) nor which component triggers or uses this identification. This adds ambiguity regarding when second-run goal is fixed.
+        </Description>
+        <Solution>
+Clarify the timing and triggering, e.g., “The software shall, upon completion of exploration, compute the set of candidate goal regions as contiguous 2x2 blocks...” and specify that this is invoked by the exploration controller or path planner. Optionally add a &lt;DependsOn&gt; from second-run computation LLRs to this requirement.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--21">
+        <ItemID>LL-MAP-1.3.1</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+While the grid map data structure is defined conceptually, there is no explicit LLR specifying how this map is exposed to other components (read-only interface, query functions, event-based updates). For architecture design, a clear map access interface is required.
+        </Description>
+        <Solution>
+Add an LLR defining the map access API, e.g., “The software shall provide functions to query and update the classification of cells and wall segments by (row, column) indices, and to subscribe to events when specific cells or walls change classification.” This will allow clear architectural separation between mapping, planning, and control.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--22">
+        <ItemID>LL-MAP-1.4.1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The enumeration {UNKNOWN, FREE, BLOCKED} is defined for cells, but no requirement constrains whether transitions are allowed between any pair of states (e.g., FREE back to UNKNOWN) or only in certain directions. Combined with LL-MAP-1.3.5’s static map assumption, this may cause confusion at design time.
+        </Description>
+        <Solution>
+Specify allowed state transitions, e.g., “A cell’s state may change from UNKNOWN to FREE or BLOCKED, but once set to FREE or BLOCKED within a mission it shall not revert to UNKNOWN unless a map reset is performed as defined in &lt;ID of reset requirement&gt;.”
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--23">
+        <ItemID>LL-RUN-1.2.3</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+The requirement references “configured maximum speeds that prevent loss of wall detection and collisions” but there is no LLR specifying how these maximum speeds are determined (relation to sensor sampling rate, stopping distance, etc.). This makes it hard to derive concrete safety margins and to implement a consistent motion-planning vs. sensing architecture.
+        </Description>
+        <Solution>
+Add an LLR that defines how maximum permissible speeds are computed based on sampling rate, emergency-stop threshold, and ultrasonic uncertainty (e.g., referencing LL-INTERF-2.3.1 and LL-RELIAB-1.1.2). This will allow safety limits to be derived and reused consistently across exploration and second run.
+        </Solution>
+    </Finding>
+
+    <Finding ID="LLR--1--24">
+        <ItemID>GENERAL</ItemID>
+        <Severity>Major</Severity>
+        <Description>
+There is no explicit LLR covering system-level time management/scheduling (e.g., main loop or periodic task structure) that coordinates sensor sampling, planning, and control updates. While many functional behaviors are specified, an architecture designer has insufficient information on timing relationships (e.g., sequence: sample sensors → update map → replan → send motor commands) to derive a high-level runtime architecture.
+        </Description>
+        <Solution>
+Introduce one or more LLRs describing the overall control cycle or scheduling model, for instance: “The software shall implement a periodic control loop with period T, in which it (1) acquires sensor readings, (2) updates the map, (3) updates the state machine, (4) computes or updates the current path as needed, and (5) issues motor commands.” This will directly support architecture and task-design decisions.
+        </Solution>
+    </Finding>
+</Findings>

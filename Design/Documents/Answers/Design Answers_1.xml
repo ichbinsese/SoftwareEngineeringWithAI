@@ -1,0 +1,125 @@
+<Answer findings_version="1" findings_type="Design">
+    <Implementation>
+        <FindingID>Design--1--1</FindingID>
+        <Explanation>
+            The GridMapModule (CMP--3) has been updated to explicitly describe how cells become FREE and BLOCKED, tying the behavior directly to LL--MAP--1.4.3 and LL--MAP--1.4.4.
+
+            Concretely:
+            - In CMP--3.Execution:
+              * A dedicated "Free cell confirmation" step was added:
+                - On CellCenterEntryEvent from PoseEstimation, if the target cell is UNKNOWN, MotionControlModule indicates that the transition into the cell completed without collision or emergency stop on the entry face, and the Reliability/consistency module reports no contradictory evidence for that cell, then the GridMapModule performs UNKNOWN-&gt;FREE for that cell and emits a classification-change event. This mirrors LL--MAP--1.4.3’s wording: “successfully traversed into the cell without detecting a collision or blocking wall on the entry face, and no contradictory evidence”.
+              * A dedicated "Blocked cell inference" step was added:
+                - On WallObservation reporting a PRESENT wall between the current cell and a neighbor, GridMapModule:
+                  + Sets the corresponding wall segment from UNKNOWN to PRESENT (if UNKNOWN).
+                  + Sets the neighbor cell from UNKNOWN to BLOCKED (if UNKNOWN) and emits classification-change events, reflecting LL--MAP--1.4.4.
+            - In CMP--3.Invariants:
+              * We now explicitly state that:
+                - UNKNOWN-&gt;FREE transitions are driven by MotionControlModule execution completion and consistency info.
+                - UNKNOWN-&gt;BLOCKED transitions are driven by WallDetection/Mapping’s WallObservation (PRESENT wall to neighbor).
+            These changes fully specify where and how a cell becomes FREE or BLOCKED in line with the referenced LLRs.
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--2</FindingID>
+        <Explanation>
+            The DerivedFrom list for the Frontier Generation and Exploration Target Selection component (CMP--2, previously CMP--3 in the finding) has been corrected.
+
+            Changes:
+            - The duplicate “LL--MAP--1.1.6” entry was removed.
+            - The reference to LL--MAP--1.1.6 was removed entirely from CMP--2.DerivedFrom, since this component does not implement the map completeness criterion or provide a completeness Boolean.
+            - LL--MAP--1.1.6 remains referenced only by:
+              * CMP--3 (Grid Map Module), which computes and exposes GM_MapCompletenessFlag.
+              * CMP--11 (Exploration Status and Time Limit Module), which uses the completeness flag to emit EXPLORATION_COMPLETED events.
+            The updated CMP--2.DerivedFrom now lists only the requirements directly implemented by frontier generation and target selection (LL--MAP--1.1.1, 1.1.3, 1.1.4, 1.1.5, 1.1.6 as Frontier Generation, 1.3.1, 1.5.2, 1.5.3, and LL--PLAN--1.1.1/1.1.2).
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--3</FindingID>
+        <Explanation>
+            The Mapping and Wall Detection Module (CMP--6, previously referred to as CMP--10 in the finding) execution description has been clarified to align unequivocally with the static map assumption.
+
+            Changes:
+            - In CMP--6.Execution, the “Consistency handling” step was rewritten:
+              * For UNKNOWN entries:
+                - N consecutive consistent readings are used to decide the first classification, i.e., whether to issue MM_MapUpdateRequest (UNKNOWN-&gt;PRESENT/ABSENT for walls, UNKNOWN-&gt;FREE/BLOCKED for cells).
+              * For already classified entries (FREE/BLOCKED or PRESENT/ABSENT):
+                - Any contradictory observation is treated purely as sensor error; the module does not issue MM_MapUpdateRequest that would attempt to change FREE&lt;-&gt;BLOCKED or PRESENT&lt;-&gt;ABSENT or revert to UNKNOWN.
+            - In CMP--6.Invariants:
+              * We added explicit statements:
+                - “For map entries already classified (non-UNKNOWN), mapping never requests a new classification that would change FREE↔BLOCKED or PRESENT↔ABSENT.”
+            - AdditionalData.DAT--5 now clarifies that N is only used while entries are UNKNOWN; once they become FREE/BLOCKED or PRESENT/ABSENT, immutability holds and N is not used to override them.
+            This removes the previous ambiguity and fully complies with LL--MAP--1.3.5, LL--MAP--1.4.1, and LL--MAP--1.4.2.
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--4</FindingID>
+        <Explanation>
+            The Motion Control and Collision Avoidance component (CMP--8, previously CMP--11 in the finding) has been extended to explicitly encode the “no resume until new safe trajectory” constraint from LL--RELIAB--1.1.2.
+
+            Changes:
+            - An internal EMERGENCY_STOPPED mode/state was introduced in CMP--8.Execution:
+              * When emergency conditions are detected, Motion Control:
+                - Immediately calls motor_set(0,0).
+                - Sets internal state to EMERGENCY_STOPPED.
+                - Reports path execution aborted and raises an EmergencyStopEvent.
+              * While in EMERGENCY_STOPPED:
+                - The module does not advance any motion primitives.
+                - It does not issue any nonzero motor_set commands.
+                - It remains in this mode until a new MC_MotionCommand representing a safe trajectory is received and explicitly accepted, at which point the state returns to NORMAL (or AVOIDANCE if appropriate).
+            - CMP--8.Invariants now include:
+              * “Following an EmergencyStopEvent (transition to EMERGENCY_STOPPED), motor speeds remain at 0 and no motion primitives are advanced until a new MC_MotionCommand representing a safe trajectory is received and accepted.”
+            This makes the LL--RELIAB--1.1.2 requirement explicit in the design, not only at higher-level mission logic but in the actuator control component itself.
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--5</FindingID>
+        <Explanation>
+            The determinism requirement has been made explicit in FSM--1, the artifact directly representing the top-level mission control state machine.
+
+            Changes:
+            - In CMP--1.Invariants:
+              * We extended the invariant to state:
+                - “State transitions are deterministic for a given history of events and time; in each control-loop cycle, for any combination of evaluated inputs/events, at most one outgoing transition from the current state is taken, with fixed priority rules when multiple triggers are simultaneously true.”
+            - This ties CMP--1 determinism to FSM--1, which defines all states and transitions; while FSM--1’s structure already implied this, the invariant now explicitly documents the guarantee required by LL--MAP--1.1.1.
+            - FSM--1 remains the formal behavior definition; the added invariant ensures the state machine itself is documented as deterministic for any combination of state and inputs/events per cycle, in line with LL--MAP--1.1.1’s “deterministic transitions”.
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--6</FindingID>
+        <Explanation>
+            The naming inconsistency between the enums in DAT--1 and the COMPLETED state description in the MissionControlStateMachine has been resolved by harmonizing on the more specific names.
+
+            Changes:
+            - In DAT--1.Content:
+              * ReturnToStartStatusEnum is defined as:
+                enum ReturnToStartStatusEnum { RETURN_NOT_EXECUTED = 0, RETURN_SUCCESS = 1, RETURN_FAILURE = 2 };
+              * SecondRunStatusEnum is defined as:
+                enum SecondRunStatusEnum { SECOND_RUN_NOT_EXECUTED = 0, SECOND_RUN_SUCCESS = 1, SECOND_RUN_FAILURE = 2 };
+            - In CMP--1 (Mission Control State Machine), COMPLETED state description and MC_SecondRunStatusOutput were updated to use:
+              * SECOND_RUN_NOT_EXECUTED (instead of generic NOT_EXECUTED).
+              * Similarly, ReturnToStartStatus is aligned conceptually with RETURN_NOT_EXECUTED/RETURN_SUCCESS/RETURN_FAILURE.
+            This ensures that the textual description and enum definitions use the same spelling and semantics, removing ambiguity when implementing or reporting second run and return-to-start statuses.
+        </Explanation>
+    </Implementation>
+
+    <Implementation>
+        <FindingID>Design--1--7</FindingID>
+        <Explanation>
+            The explicit trace between CMP--1 and FSM--1 has been added, making the ownership relationship unambiguous.
+
+            Changes:
+            - In CMP--1.Purpose:
+              * The first sentence now states:
+                “Central mission coordinator that owns the top-level mission state machine (defined formally in FSM--1) and orchestrates exploration, return-to-start, and second run behaviors.”
+            - In CMP--1.Execution:
+              * The final sentence now reads:
+                “The behavior of this component, including all state transitions and their guards, is fully specified by state machine FSM--1 in the StateMachines artifact.”
+            These additions explicitly link CMP--1 to FSM--1 and make clear that LL--MAP--1.1.1, LL--MAP--1.1.2, and LL--RUN--1.2.1 are satisfied via the state machine described in FSM--1, satisfying the SDP traceability requirement.
+        </Explanation>
+    </Implementation>
+</Answer>

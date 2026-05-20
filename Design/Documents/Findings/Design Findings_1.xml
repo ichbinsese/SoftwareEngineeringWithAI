@@ -1,0 +1,97 @@
+<Findings version="1" source="Design" source_version="1">
+    <Finding ID="Design--1--1">
+        <ItemID>CMP--2</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            GridMapModule.Invariants and Execution allow cells to be classified as BLOCKED and walls as PRESENT/ABSENT, and DerivedFrom references LL--MAP--1.4.3 Free Cell Confirmation, but the design never describes where or how a cell becomes BLOCKED, or how a cell is marked FREE specifically according to the condition in LL--MAP--1.4.3 (successful traversal without collision and no contradictory evidence). The current text only states "mark traversed cells as FREE if movement completed without collision" without tying to the consistency-check requirement and gives no mechanism to ever set a cell to BLOCKED at all.
+        </Description>
+        <Solution>
+            Extend GridMapModule.Execution to explicitly define:
+            - How a cell is marked FREE: include the exact condition from LL--MAP--1.4.3, i.e. on CellCenterTransitionEvent when MotionControlModule indicates no collision/emergency on the entry face and Reliability/consistency checks pass (no contradictory evidence), then set cell state UNKNOWN-&gt;FREE.
+            - How a cell is marked BLOCKED: specify that when WallDetectionModule reports a PRESENT wall between current cell and neighbor, GridMapModule infers that the neighbor cell is BLOCKED, in line with LL--MAP--1.4.4, and performs state transition UNKNOWN-&gt;BLOCKED.
+            Also add a short note under Invariants/Execution that the Free/Blocked transitions are driven by WallDetectionModule observations and MotionControlModule execution completion, thereby fully covering LL--MAP--1.4.3 and LL--MAP--1.4.4.
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--2">
+        <ItemID>CMP--3</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            FrontierGenerationModule.DerivedFrom lists LL--MAP--1.1.6 (Map Completeness Criterion) twice and omits LL--MAP--1.1.6’s actual behavior: providing a boolean “map complete” indication to mission control. The component neither produces such a boolean nor consumes it; map completeness is instead implemented by GridMapModule and ExplorationStatusModule. The duplicate ID is a documentation error and the reference is misleading.
+        </Description>
+        <Solution>
+            Correct the DerivedFrom list for CMP--3:
+            - Remove the duplicate LL--MAP--1.1.6 entry.
+            - Remove LL--MAP--1.1.6 entirely from CMP--3.DerivedFrom, since this component does not implement the completeness criterion or its indication.
+            - Ensure LL--MAP--1.1.6 is only referenced by components that actually implement or expose map completeness (GridMapModule and ExplorationStatusModule, which already do so).
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--3">
+        <ItemID>CMP--10</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            WallDetectionModule.Execution, under “Consistency and Map Update”, says that for conflicting readings it may (after N readings) overwrite existing map classification, but then states that the static map assumption disallows actual state changes and "classification remains as first observation". This is ambiguous relative to LL--MAP--1.3.5 and LL--MAP--1.4.1/1.4.2, which mandate immutability (no PRESENT↔ABSENT or FREE↔BLOCKED changes within a mission). As written, the component both allows and disallows overrides.
+        </Description>
+        <Solution>
+            Clarify the policy to align with the static map assumption:
+            - In WallDetectionModule.Execution, change the conflicting-evidence handling to:
+              * For walls/cells already classified (non-UNKNOWN), any contradictory observation is treated as sensor error; the module does not request map changes that would violate UNKNOWN-&gt;PRESENT/ABSENT/ FREE/BLOCKED-only rules.
+              * N consecutive readings are applied only while the map entry is UNKNOWN, to decide the first classification; after that, immutability holds.
+            - Remove or rephrase any suggestion that an established PRESENT/ABSENT or FREE/BLOCKED classification can be overridden.
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--4">
+        <ItemID>CMP--11</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            MotionControlModule.Execution describes emergency-stop behavior as "Immediately command motor_set(0,0). Raise EmergencyStopEvent; mark aborted=true." but does not explicitly state that after this, the module "shall not resume movement until a new safe trajectory has been established", as required by LL--RELIAB--1.1.2. Upstream components may re-command motion, but the current text does not make the non-resumption constraint explicit at the MotionControlModule level.
+        </Description>
+        <Solution>
+            Amend MotionControlModule.Execution and/or Invariants to explicitly implement LL--RELIAB--1.1.2:
+            - After EmergencyStopEvent is raised and motors are set to 0, keep the internal state in an "emergency_stopped" mode where:
+              * No new primitives are advanced and no nonzero motor_set commands are issued until a new MotionCommand is received from MissionControlStateMachine that has been evaluated as safe.
+            - Add an invariant such as: "Following an EmergencyStopEvent, motor speeds remain at 0 until a new MotionCommand representing a safe trajectory is accepted."
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--5">
+        <ItemID>FSM--1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            LL--MAP--1.1.1 requires the top-level mission control state machine to have states {IDLE, EXPLORE, RETURN_TO_START, SECOND_RUN, COMPLETED} with deterministic transitions. FSM--1 defines these states and their transitions, but does not explicitly state determinism (i.e., for a given state and input combination, exactly one outgoing transition is taken). While MissionControlStateMachine.Timing mentions “decisions remain deterministic”, FSM--1 itself omits that guarantee, which is the artifact directly satisfying the requirement.
+        </Description>
+        <Solution>
+            Add an explicit determinism statement to FSM--1:
+            - Under Invariants (new subsection if needed) or in the StateMachine description, state: "For any combination of current state and evaluated inputs/events in a single control-loop cycle, at most one transition is taken; tie-breaking rules (e.g., priority between EXPLORATION_COMPLETED and EXPLORATION_TIMEOUT) are fixed, ensuring deterministic behavior."
+            - Optionally reference ExplorationStatusModule’s precedence rule to show how simultaneous completion/timeout is deterministically resolved.
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--6">
+        <ItemID>DAT--1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            DAT--1.SecondRunStatusEnum and ReturnToStartStatusEnum use values SECOND_RUN_NOT_EXECUTED and RETURN_NOT_EXECUTED, while MissionControlStateMachine.COMPLETED state describes "second_run_status ∈ {SUCCESS, FAILURE, NOT_EXECUTED}" and "return_to_start_status ∈ {SUCCESS, FAILURE, NOT_EXECUTED}". The names "NOT_EXECUTED" vs "SECOND_RUN_NOT_EXECUTED"/"RETURN_NOT_EXECUTED" are inconsistent, which can cause confusion or misalignment between enum definitions and state-machine documentation.
+        </Description>
+        <Solution>
+            Harmonize the enum names with the descriptions:
+            - Either change DAT--1 enums to use the generic NOT_EXECUTED value in both enums, or change the MissionControlStateMachine.COMPLETED description to use SECOND_RUN_NOT_EXECUTED and RETURN_NOT_EXECUTED exactly.
+            - Ensure any external reporting interface also uses the same spelling to avoid ambiguity.
+        </Solution>
+    </Finding>
+
+    <Finding ID="Design--1--7">
+        <ItemID>CMP--1</ItemID>
+        <Severity>Minor</Severity>
+        <Description>
+            The MissionControlStateMachine component Purpose and Execution state that it "implements a top-level mission control state machine", but the Design also contains a separate FSM--1 artifact describing this state machine. The component text does not explicitly reference FSM--1 as its owning state machine, although SDP requires state machines to be used to describe component behavior. This makes the trace between CMP--1 and FSM--1 implicit rather than explicit.
+        </Description>
+        <Solution>
+            In CMP--1 (e.g., in Purpose or Execution), add an explicit reference to FSM--1:
+            - For example: "The behavior of this component is defined by state machine FSM--1 in the StateMachines artifact."
+            This ensures clear traceability between the component and its state machine, and makes it obvious that LL--MAP--1.1.1, LL--MAP--1.1.2, and LL--RUN--1.2.1 are satisfied via FSM--1.
+        </Solution>
+    </Finding>
+</Findings>

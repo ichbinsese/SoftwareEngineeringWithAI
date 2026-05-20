@@ -1,0 +1,235 @@
+Log of Software Verifier
+[2026-05-13--21:54:46]User: You will be supplied with Low Level Requirements, and High Level Requirements
+They have to follow this standart:
+
+Software Requirements Policy (SRP)
+Version 1.0
+
+1. Format
+1.1 Structure Description
+
+1.1.1 Document Structure
+1. Requirements are to be structured using XML files.
+2. An XML file must either contain only High Level Requirements or only Low Level Requirements.
+3. All documents must start with the <Requirements> tag.
+4. The <Requirements> tag must have two attributes:
+   a. “version”: the file's version
+   b. “hierarchy”: specifies if the file contains only High Level Requirements (“HLR”) or only Low Level Requirements (“LLR”)
+
+1.1.2 Requirement Structure
+5. Below the <Requirements> tag, every requirement must be stored inside its own <Requirement> tag.
+   a. The <Requirement> tag must contain “type”, denoting whether it is Functional Requirement (“FR”) or Non-Functional Requirement (“NFR”)
+
+6. Each <Requirement> must contain the following child tags:
+   a. <ID>: unique identifier for the requirement
+   b. <Name>: name of the requirement
+   c. <Content>: description of the requirement
+   d. <Relationships>: contains relationships to other requirements
+
+1.1.3 HLR Relationships
+7. When defining a High Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a High-Level Requirement that this requirement depends on.
+
+1.1.4 LLR Relationships
+8. When defining a Low Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a Low-Level Requirement that this requirement depends on.
+   b. <Refines>: each containing the ID of a High-Level Requirement this requirement refines.
+
+1.2 Structure Template
+
+1.2.1 High-Level Requirements
+<Requirements version="{version}" hierarchy="HLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <DependsOn>{HLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each High Level Requirement -->
+</Requirements>
+
+1.2.2 Low-Level Requirements
+<Requirements version="{version}" hierarchy="LLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <Refines>{HLR this one refines}</Refines>
+           <DependsOn>{LLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each Low Level Requirement -->
+</Requirements>
+
+2. Traceability
+2.1 Relationships
+
+2.1.1 Refines
+1. The Refines property is only applicable for Low-level requirements.
+2. Only High-level requirements can be the target of the Refines relationship.
+3. The Low-level requirement must not contradict the High-level requirements it refines.
+4. Every part of any High-level requirement must be refined into a Low-level requirement.
+5. Any part of any Low-level requirement must be traceable to a refined High-level requirement.
+
+2.1.2 Depends On
+1. The Depends On property is applicable for Low and High Level Requirements.
+2. It describes a dependency between two requirements on the same or different layers
+3. A requirements that refines another, cant point to it with the depends on property
+
+3. Content
+3.1 Hierarchy
+
+3.1.1 High-Level Requirements
+1. High-level requirements should be relatively broad in scope.
+2. High-level requirements should describe the system capabilities.
+3. High-level requirements must be testable.
+4. High-level requirements must be implementable.
+5. High-level requirements must be refined by at least one Low-level requirement.
+
+3.1.2 Low-Level Requirements
+6. Low-level requirements must always refine at least one High-level requirement, and can refine multiple if needed.
+7. Low-level requirements should describe a specific system function.
+8. Low-level requirements must be testable.
+9. Low-level requirements must be implementable.
+
+3.2 Identification
+1. The content of the <ID> tag must conform to the pattern:
+   “{level}-{category}-{section}.{item}”
+   a. {level}: HL or LL
+   b. {category}: category code (e.g., UI)
+   c. {section}: major part of category
+   d. {item}: sub-item (0 describes category)
+
+2. The content of the <Name> tag must be a short description of the requirement.
+
+3.3 Type
+Type is noted in the type attribute of each requirement
+3.3.1 Functional Requirements
+Describe concrete functions of the system.
+In the type attribute it is noted as "FR"
+
+3.3.2 Non-Functional Requirements
+Describe restrictions placed on the system.
+In the type attribute it is noted as "NFR"
+
+3.4 Wording
+1. Requirements must be expressed in plain English using "shall".
+2. Requirements must be understandable on their own.
+3. Requirements must be unambiguous.
+ 
+
+You will check them and whenever there are errors, either regarding this document or any logical faults you will create Findings according to this document:
+
+Software Findings Policy (SFP)
+
+When a Verifier notices an Error or Inconsistency in any Document a Finding is created, which details the Error, Its location and a possible solution.
+The creator of the Original Document has to process each Finding and either implement the solution, or justify why the problem does not need to be fixed.
+
+Findings Document Structure
+1. Findings are to be structured using XML files.
+3. A Findings Document always contain findings of only one document
+4. All documents must start with the <Findings> tag.
+5. The <Findings> tag must have three attributes:
+   a. “version”: the findings documents version
+   b. “source”: specifies the type of document the findings reference
+   c. “source_version”: specifies the version of the source document
+
+Findings Structure
+6.  Below the <Findings> tag, every finding must be stored inside its own <Finding> tag.
+    a. each finding must have the attribute "id"
+
+7. Each Finding must have the following children
+    a. <ItemID> The ID of the Item the Finding references
+    b. <Description> Description of the Finding
+    c. <Solution> A Suggestion as how to fix the Problem
+    d. <Severity> Severity how the finding
+
+8. Findings can have the following children, in certain circumstances
+    e <RollbackPhase> to which phase the development needs to be rolled back to fix the findings
+
+Finding Template
+
+<Findings version="{version}" source= "{source}" source_version = "{source_version}"  >
+    <Finding ID = "{finding id}">
+        <ItemID> {RequirementID} </ItemID>
+        <Severity> {Severity} </Severity>
+        <Description> {Description} </Description>
+        <Solution> {Solution} </Solution>
+        <RollbackPhase> {Optional: Rollback Phase}</RollbackPhase>
+    </Finding>
+</Findings>
+
+Identification
+  The content of the findings <ID> tag must conform to the pattern:
+  "{source_type}--{source_version}--{counter}"
+  "source_type": The type of the source document
+  "source_version": The version of the source document
+  "counter": The number of the finding of the document, starting with 1
+
+Severity
+    Severity can have 3 Grades
+    a. "Minor": Only affects one item, minor changes needed in the current phase
+    b. "Major": Affects multiple items, major changes needed in the current phase
+    c. "Catastrophic": Affects multiple items, it is necessary to change items in prior phases
+
+    Whenever a catastrophic finding is detected, only catastrophic findings are to be documented.
+    Catastrophic findings need to have the Rollback Phase child, indicating to which phase the process needs to be rolled back to fix the problem.
+    It is advised to only roll back to the previous phase, but it is possible to rollback multiple phases
+    The phases are as follows:
+    a. "High Level Design"
+    b. "Low Level Design"
+    c. "Architecture Design"
+    d. "Implementation"
+
+
+
+Answer Document Structure
+1. Answers are to be structured using XML files.
+2. A Answer Document contains only the answer to one Findings document
+3. All documents must start with the <Answer> tag.
+4. The <Findings> tag must have one attributes:
+   b. “findings_version”: specifies the version of the findings document, the answer is to
+   c. “findings_type”: specifies the type of document the finding document references
+
+Findings Structure
+5. Below the <Findings> tag, every answer must be stored inside its own <Justification> or <Implementation> tag.
+
+Justification Structure
+6. Each Justification must have the following children
+    a. <FindingID> The ID of the Finding the Answer references
+    b. <Explanation> Explanation why the Finding does not need to be fixed
+
+Implementation Structure
+7. Each Implementation must have the following children
+    a. <FindingID> The ID of the Finding the Answer references
+    b. <Explanation> Explanation of how the Finding was Fixed
+
+<Answer findings_version= "{findings_version}" findings_type "{findings_type}">
+    <Justification>
+        <FindingID> {Finding ID} </FindingID>
+        <Explanation> {Explanation} </Explanation>
+    </Justification>
+
+    <Implementation>
+        <FindingID> {Finding ID} </FindingID>
+        <Solution> {Solution} </Solution>
+    </Implementation>
+</Answer>
+
+Justification
+    A Justification is needed whenever a Finding is not Accepted, it needs to explain why the Finding is not correct
+    When the Finding Author does not agree with the Justification, another Finding, referencing the same Item as the original Finding needs to be created, arguing against the Justification
+
+ 
+
+When you got a list of low level requirements, to verify and you found no problems only answer with "clear" otherwise answer with the findings as laid out before. When you got no list of requirements, only instructions answer with check if you understood your task, and help if you have problems.
+
+
+[2026-05-13--21:54:47]Agent: check

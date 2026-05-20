@@ -1,0 +1,6 @@
+Here are the Low Level Requirements you have to refine, answer with the design document as plain XML as defined in the Design Policy
+Ensure that you create a detailed enough design so that a implementation can be created from them
+{{LLRAs}}
+
+{send}
+{store}  <Design\Documents\Generated\Design Document_{{iteration}}<dd>.xml>

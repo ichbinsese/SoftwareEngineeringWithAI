@@ -9,11 +9,15 @@ class IterationManager:
         "hlr" : 1,
         "llf" : 1,
         "lla" : 1,
+        "dd" : 1,
+        "df" : 1,
+        "da" : 1,
      }
 
     @staticmethod
     def initialize():
-        pass
+        s = ProjectUtils.read_file(f"Requirements/Iteration.json")
+        IterationManager.iterations = json.loads(s)
 
     @staticmethod
     def iterate(iteration_type:str):

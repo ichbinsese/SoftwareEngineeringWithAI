@@ -26,6 +26,18 @@ class _MarkerFunctions:
         return plain_text
 
     @staticmethod
+    def LLRAs(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file( f"Requirements/Low Level Requirements/Generated/Low Level Requirements_{IterationManager.get_iteration("llr")}.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
+        return plain_text
+
+    @staticmethod
+    def Design(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file( f"Design/Documents/Generated/Design Document_{IterationManager.get_iteration("dd")}.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
+        return plain_text
+
+    @staticmethod
     def file(plain_text:str, position:int):
         path = plain_text[plain_text.find("<",position) + 1:plain_text.find(">",position)]
         plain_text = plain_text.replace("<" + path + ">","",1)
@@ -124,6 +136,8 @@ class Prompt(object):
         "{{requirements}}" : _MarkerFunctions.requirements,
         "{{HLRs}}" : _MarkerFunctions.HLRs,
         "{{LLRs}}" : _MarkerFunctions.LLRs,
+        "{{LLRAs}}" : _MarkerFunctions.LLRAs,
+        "{{Design}}" : _MarkerFunctions.Design,
         "{{file}}" : _MarkerFunctions.file,
     }
 
@@ -158,7 +172,7 @@ class Prompt(object):
         while True:
             matches = [(s,   self.plain_prompt.find(s)) for s in self.splitters.keys() if self.plain_prompt.find(s) != -1]
             if not matches:
-                return  # no substring found
+                return
             res = min(matches, key=lambda x: x[1])
             self.plain_prompt = self.plain_prompt.replace(res[0], "",1)
             text = self.plain_prompt[0:res[1]]

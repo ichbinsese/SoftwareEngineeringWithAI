@@ -1,0 +1,2436 @@
+Log of Software Engineer
+[2026-05-13--21:11:37]User: You will be supplied with the Requirements Policy for the company you work for, it is integral that you follow them when writing your Low Level Requirements.
+Afterwards you will be supplied with High Level Requirements, that you have to refine use your entire knowledgebase to do this, while keeping with the requirement policy
+Refine every High Level Requirement into multiple Low Level Requirements with enough information for another engineer to refine them into a Software Architecture. Make sure to use all your knowledge to add further information required for a software architecture
+Whenever an output is requested answer only with the output, otherwise answer only with "check", whenever you understand your task, and with "help", following with you problem whenever a problem occurs.
+This is the Requirement Policy you have to learn:
+Software Requirements Policy (SRP)
+Version 1.0
+
+1. Format
+1.1 Structure Description
+
+1.1.1 Document Structure
+1. Requirements are to be structured using XML files.
+2. An XML file must either contain only High Level Requirements or only Low Level Requirements.
+3. All documents must start with the <Requirements> tag.
+4. The <Requirements> tag must have two attributes:
+   a. “version”: the file's version
+   b. “hierarchy”: specifies if the file contains only High Level Requirements (“HLR”) or only Low Level Requirements (“LLR”)
+
+1.1.2 Requirement Structure
+5. Below the <Requirements> tag, every requirement must be stored inside its own <Requirement> tag.
+   a. The <Requirement> tag must contain “type”, denoting whether it is Functional Requirement (“FR”) or Non-Functional Requirement (“NFR”)
+
+6. Each <Requirement> must contain the following child tags:
+   a. <ID>: unique identifier for the requirement
+   b. <Name>: name of the requirement
+   c. <Content>: description of the requirement
+   d. <Relationships>: contains relationships to other requirements
+
+1.1.3 HLR Relationships
+7. When defining a High Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a High-Level Requirement that this requirement depends on.
+
+1.1.4 LLR Relationships
+8. When defining a Low Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a Low-Level Requirement that this requirement depends on.
+   b. <Refines>: each containing the ID of a High-Level Requirement this requirement refines.
+
+1.2 Structure Template
+
+1.2.1 High-Level Requirements
+<Requirements version="{version}" hierarchy="HLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <DependsOn>{HLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each High Level Requirement -->
+</Requirements>
+
+1.2.2 Low-Level Requirements
+<Requirements version="{version}" hierarchy="LLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <Refines>{HLR this one refines}</Refines>
+           <DependsOn>{LLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each Low Level Requirement -->
+</Requirements>
+
+2. Traceability
+2.1 Relationships
+
+2.1.1 Refines
+1. The Refines property is only applicable for Low-level requirements.
+2. Only High-level requirements can be the target of the Refines relationship.
+3. The Low-level requirement must not contradict the High-level requirements it refines.
+4. Every part of any High-level requirement must be refined into a Low-level requirement.
+5. Any part of any Low-level requirement must be traceable to a refined High-level requirement.
+
+2.1.2 Depends On
+1. The Depends On property is applicable for Low and High Level Requirements.
+2. It describes a dependency between two requirements on the same or different layers
+3. A requirements that refines another, cant point to it with the depends on property
+
+3. Content
+3.1 Hierarchy
+
+3.1.1 High-Level Requirements
+1. High-level requirements should be relatively broad in scope.
+2. High-level requirements should describe the system capabilities.
+3. High-level requirements must be testable.
+4. High-level requirements must be implementable.
+5. High-level requirements must be refined by at least one Low-level requirement.
+
+3.1.2 Low-Level Requirements
+6. Low-level requirements must always refine at least one High-level requirement, and can refine multiple if needed.
+7. Low-level requirements should describe a specific system function.
+8. Low-level requirements must be testable.
+9. Low-level requirements must be implementable.
+
+3.2 Identification
+1. The content of the <ID> tag must conform to the pattern:
+   “{level}-{category}-{section}.{item}”
+   a. {level}: HL or LL
+   b. {category}: category code (e.g., UI)
+   c. {section}: major part of category
+   d. {item}: sub-item (0 describes category)
+
+2. The content of the <Name> tag must be a short description of the requirement.
+
+3.3 Type
+Type is noted in the type attribute of each requirement
+3.3.1 Functional Requirements
+Describe concrete functions of the system.
+In the type attribute it is noted as "FR"
+
+3.3.2 Non-Functional Requirements
+Describe restrictions placed on the system.
+In the type attribute it is noted as "NFR"
+
+3.4 Wording
+1. Requirements must be expressed in plain English using "shall".
+2. Requirements must be understandable on their own.
+3. Requirements must be unambiguous.
+ 
+
+Make sure to ONLY answer with the output xml when requested
+
+
+[2026-05-13--21:11:41]Agent: check
+[2026-05-13--21:11:44]User: Here are the High Level Requirements you have to refine, answer with the refined requirements as plain XML as defined in the Requirements Policy
+Ensure that you create enough low level requirements so that a architecture design can be created from them
+<?xml version="1.0" ?>
+<Requirements version="1" hierarchy="HLR">
+  <Requirement ID="HL-EXPL-1.1">
+    <Type>NFR / FR</Type>
+    <Name>Example</Name>
+    <Content>Example Description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.2">
+    <Type>FR</Type>
+    <Name>Explore Maze</Name>
+    <Content>Robot shall autonomously explore an unknown maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.3">
+    <Type>FR</Type>
+    <Name>Wall Detection</Name>
+    <Content>Robot shall detect and avoid walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.1">
+    <Type>FR</Type>
+    <Name>Create Map</Name>
+    <Content>Robot shall create an internal representation of the maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.2">
+    <Type>FR</Type>
+    <Name>Cell Clasification</Name>
+    <Content>Robot shall distinguish between free, blocked, and unknown areas</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.3">
+    <Type>NFR</Type>
+    <Name>Time Constraint</Name>
+    <Content>Robot shall complete mapping of the maze within 5 minutes</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-PLAN-3.1">
+    <Type>FR</Type>
+    <Name>Path Planning</Name>
+    <Content>Robot shall compute an optimal path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.1">
+    <Type>FR</Type>
+    <Name>Return to Start</Name>
+    <Content>Robot shall return to start after the exploration is done</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.2">
+    <Type>FR</Type>
+    <Name>Second Run</Name>
+    <Content>Robot shall perform a second run after exploration</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.3">
+    <Type>FR</Type>
+    <Name>Efficient Path Execution</Name>
+    <Content>Second run shall follow the most efficient path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.1">
+    <Type>NFR</Type>
+    <Name>Collision Avoidance</Name>
+    <Content>The robot shall not collide with walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.2">
+    <Type>NFR</Type>
+    <Name>Fault Tolerance</Name>
+    <Content>The robot shall be able to handle faulty sensor data</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.1">
+    <Type>FR</Type>
+    <Name>Sensor Processing</Name>
+    <Content>The system shall be able to process sensor data defined in the sensor data interface description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.2">
+    <Type>FR</Type>
+    <Name>Actuator Control</Name>
+    <Content>The system shall be able to send control commands to actuators with commands specified in motor interface description</Content>
+    <Relationships/>
+  </Requirement>
+</Requirements>
+
+
+
+[2026-05-13--21:12:27]Agent: <Requirements version="1" hierarchy="LLR">
+  <Requirement ID="LL-EXPL-1.1.1">
+    <Type>NFR</Type>
+    <Name>Requirement Type Disambiguation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify each requirement as either a Functional Requirement or a Non-Functional Requirement, and no requirement shall be labeled with multiple types such as "NFR / FR".
+    </Content>
+  </Requirement>
+
+  <!-- Exploration behaviour -->
+
+  <Requirement ID="LL-EXPL-1.2.1">
+    <Type>FR</Type>
+    <Name>Exploration Mode Activation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall provide an exploration mode that, once activated, shall cause the robot to autonomously navigate the maze without requiring further external commands other than an emergency stop.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.2">
+    <Type>FR</Type>
+    <Name>Exploration Coverage Strategy</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an exploration strategy that shall continually select the next movement target such that unvisited or unknown maze cells are preferentially visited until no reachable unknown cells remain.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.3">
+    <Type>FR</Type>
+    <Name>Exploration Termination Condition</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall terminate exploration mode when either all reachable cells are classified as free or blocked in the internal maze representation, or when the exploration time limit defined for maze mapping is reached.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.4">
+    <Type>FR</Type>
+    <Name>Exploration Motion Command Generation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall continuously generate motion commands (e.g., forward speed and rotational speed) during exploration mode such that the robot follows the currently selected exploration path while respecting active collision avoidance constraints.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.5">
+    <Type>FR</Type>
+    <Name>Exploration State Machine</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement a high-level state machine with at least the states "Idle", "Exploring", "ReturningToStart", and "SecondRun", and shall manage transitions between these states according to exploration completion and run control logic.
+    </Content>
+  </Requirement>
+
+  <!-- Wall detection and avoidance -->
+
+  <Requirement ID="LL-EXPL-1.3.1">
+    <Type>FR</Type>
+    <Name>Wall Detection from Sensor Data</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall process incoming range or proximity sensor data at a fixed update rate not lower than 20 Hz to estimate the presence and distance of walls in all directions covered by the sensors within the maze cell in front of the robot and in its current cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.2">
+    <Type>FR</Type>
+    <Name>Wall Proximity Thresholds</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall configure at least one safety distance threshold for each relevant direction (front, left, right) such that any detected wall closer than the corresponding threshold shall be considered an imminent collision risk.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.3">
+    <Type>FR</Type>
+    <Name>Real-Time Collision Avoidance Control</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall, upon detecting a wall within the configured safety distance in the direction of motion, adjust or override the current motion command within one sensor update cycle to prevent the robot from moving closer to the wall.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.4">
+    <Type>FR</Type>
+    <Name>Wall-Following Behaviour</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall optionally support a wall-following behaviour (e.g., left-hand or right-hand rule) that uses wall distance estimates to maintain a desired lateral distance from a wall when exploring narrow corridors.
+    </Content>
+  </Requirement>
+
+  <!-- Map creation and cell classification -->
+
+  <Requirement ID="LL-MAP-2.1.1">
+    <Type>FR</Type>
+    <Name>Maze Coordinate System Definition</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall define a discrete maze coordinate system consisting of grid cells, where each cell is identified by integer coordinates (x, y) with a configurable cell size corresponding to the physical maze structure.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.2">
+    <Type>FR</Type>
+    <Name>Robot Pose Estimation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall estimate the robot pose as (x, y, heading) in maze coordinates by integrating wheel encoder or odometry data and, if available, inertial measurements, updating this estimate at least at 20 Hz.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.3">
+    <Type>FR</Type>
+    <Name>Pose to Cell Mapping</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall map the current estimated robot pose to a corresponding maze grid cell and update this cell index whenever the robot crosses a cell boundary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.4">
+    <Type>FR</Type>
+    <Name>Internal Maze Data Structure</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall maintain an internal data structure representing the maze grid, where each cell stores at least its classification state (free, blocked, unknown) and wall existence flags for its four sides (north, east, south, west).
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.1">
+    <Type>FR</Type>
+    <Name>Initial Cell State</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall initialize every cell in the internal maze representation with the classification state "unknown" before exploration starts.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.2">
+    <Type>FR</Type>
+    <Name>Free Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "free" when the robot has occupied that cell and sensor data indicate no blocking walls within the traversable area of that cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.3">
+    <Type>FR</Type>
+    <Name>Blocked Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "blocked" when sensor data indicate that the cell is not traversable due to the presence of walls or obstacles across its entrance or interior.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.4">
+    <Type>FR</Type>
+    <Name>Unknown Cell Preservation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the classification state of a cell as "unknown" until sufficient sensor data have been acquired to classify it as "free" or "blocked".
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.5">
+    <Type>FR</Type>
+    <Name>Wall Existence Update</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update the wall existence flags for the sides of the current and adjacent cells based on processed sensor readings, ensuring consistency such that a wall on one side of a cell implies a corresponding wall on the adjacent cell side.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.5">
+    <Type>FR</Type>
+    <Name>Map Persistence During Run</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the internal maze representation in memory and accessible to other software components for the entire duration of exploration, return, and second run.
+    </Content>
+  </Requirement>
+
+  <!-- Time constraint for mapping -->
+
+  <Requirement ID="LL-MAP-2.3.1">
+    <Type>NFR</Type>
+    <Name>Mapping Time Limit Enforcement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce a hard time limit of 5 minutes from the start of exploration mode for maze mapping, after which exploration mode shall be terminated and the exploration completion procedure shall be triggered.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3.2">
+    <Type>NFR</Type>
+    <Name>Mapping Time Measurement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall measure elapsed mapping time using a monotonic clock that is not affected by system time adjustments.
+    </Content>
+  </Requirement>
+
+  <!-- Path planning -->
+
+  <Requirement ID="LL-PLAN-3.1.1">
+    <Type>FR</Type>
+    <Name>Path Planning Grid Graph</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall construct a planning graph from the internal maze representation where each traversable cell is a node and edges exist between adjacent free cells that are not separated by walls.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.2">
+    <Type>FR</Type>
+    <Name>Path Planning Invocation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall invoke the path planning algorithm to compute a path from the robot&apos;s current cell to a specified target cell, including at least the start cell, the maze exit cell or goal cell, and the start cell for return.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.3">
+    <Type>FR</Type>
+    <Name>Shortest Path Computation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall use a shortest-path algorithm such as Dijkstra or A* with non-negative edge costs to compute a path that minimizes total path cost, where cost is at least proportional to the number of traversed cells.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.4">
+    <Type>FR</Type>
+    <Name>Path Representation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall represent a planned path as an ordered sequence of maze cells or movement segments, including at least the sequence of turns and forward movements required to traverse from start to target.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.5">
+    <Type>FR</Type>
+    <Name>Unreachable Target Handling</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect when no path exists between the start cell and the target cell in the planning graph, and in this case shall report the target as unreachable to the higher-level control logic.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.6">
+    <Type>FR</Type>
+    <Name>Path Replanning Capability</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall support re-running the path planning algorithm during operation when the maze map is updated in a way that may yield a shorter or newly available path.
+    </Content>
+  </Requirement>
+
+  <!-- Return to start -->
+
+  <Requirement ID="LL-RUN-4.1.1">
+    <Type>FR</Type>
+    <Name>Start Cell Identification</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall record the maze cell corresponding to the robot&apos;s initial pose as the start cell at the beginning of exploration.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.2">
+    <Type>FR</Type>
+    <Name>Return Path Planning</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      Upon exploration completion, the system shall compute a path from the robot&apos;s current cell to the recorded start cell using the path planning component.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.3">
+    <Type>FR</Type>
+    <Name>Return Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall command the robot to follow the computed path back to the start cell by generating appropriate actuator commands for each segment while still applying collision avoidance.
+    </Content>
+  </Requirement>
+
+  <!-- Second run and efficient path execution -->
+
+  <Requirement ID="LL-RUN-4.2.1">
+    <Type>FR</Type>
+    <Name>Second Run Initiation</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      After the robot has returned to the start cell, the system shall initiate a second run mode that uses the final maze map to traverse from the start cell to the target cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.2.2">
+    <Type>FR</Type>
+    <Name>Target Cell Definition</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall allow configuration of the target cell, such as the maze goal cell or finish area, and shall use this cell as the destination for the second run.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.1">
+    <Type>FR</Type>
+    <Name>Efficient Path Selection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall use the shortest-path algorithm on the final maze map to compute the most efficient path from the start cell to the target cell for the second run, minimizing at least the total number of cell transitions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.2">
+    <Type>FR</Type>
+    <Name>Second Run Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      During the second run, the system shall command the robot to follow the selected efficient path by issuing time- or distance-parameterized motion commands for each planned movement segment while still enforcing collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.3">
+    <Type>FR</Type>
+    <Name>Second Run Completion Detection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect completion of the second run when the robot enters the target cell and stops all forward motion commands.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: collision avoidance -->
+
+  <Requirement ID="LL-RELIAB-5.1.1">
+    <Type>NFR</Type>
+    <Name>Collision-Free Distance Margin</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall ensure that, under nominal sensor and actuator conditions, the control logic never commands the robot to move such that the estimated minimum distance to any detected wall becomes less than a configured safety margin greater than zero.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.1.2">
+    <Type>NFR</Type>
+    <Name>Emergency Stop Mechanism</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an emergency stop mechanism that, upon detecting an imminent collision or inconsistent sensor readings indicating possible collision, shall immediately command zero velocity to the actuators.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: fault tolerance -->
+
+  <Requirement ID="LL-RELIAB-5.2.1">
+    <Type>NFR</Type>
+    <Name>Sensor Data Validation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall perform validation on each received sensor data packet, including range checks and consistency checks between redundant sensors when available, and shall mark data that fail validation as faulty.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.2">
+    <Type>NFR</Type>
+    <Name>Faulty Data Handling Policy</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall ignore or down-weight faulty sensor measurements in mapping and collision avoidance computations and shall fall back to last known valid measurements or conservative assumptions when necessary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.3">
+    <Type>NFR</Type>
+    <Name>Degraded Mode Operation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      When a critical sensor is detected as persistently faulty, the system shall switch to a degraded operation mode that restricts robot speed, reduces exploration aggressiveness, or halts exploration according to a predefined policy.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.4">
+    <Type>NFR</Type>
+    <Name>Sensor Fault Logging</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall log occurrences of detected faulty sensor data with at least a timestamp and sensor identifier for subsequent analysis.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: sensor processing -->
+
+  <Requirement ID="LL-INTERF-6.1.1">
+    <Type>FR</Type>
+    <Name>Sensor Data Acquisition Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an input interface that receives sensor data messages as specified in the sensor data interface description, including at least range, encoder, and optional inertial measurements.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.2">
+    <Type>FR</Type>
+    <Name>Sensor Data Timestamping</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall associate each received sensor data message with a timestamp from a monotonic clock and use these timestamps for pose estimation and time-based filtering.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.3">
+    <Type>FR</Type>
+    <Name>Sensor Data Fusion</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall fuse data from multiple sensors according to the sensor data interface description to produce consistent estimates of robot pose and wall distances for use by mapping, planning, and control components.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: actuator control -->
+
+  <Requirement ID="LL-INTERF-6.2.1">
+    <Type>FR</Type>
+    <Name>Actuator Command Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an output interface that sends motor control commands as specified in the motor interface description, including at least target wheel speeds or linear and angular velocities.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.2">
+    <Type>FR</Type>
+    <Name>Control Loop Frequency</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update actuator commands at a fixed control loop frequency of at least 20 Hz to ensure responsive motion control and collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.3">
+    <Type>FR</Type>
+    <Name>Low-Level Motion Primitives</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall expose low-level motion primitives such as "drive forward for distance", "rotate by angle", and "stop", implemented via appropriate sequences of motor commands according to the motor interface description.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.4">
+    <Type>FR</Type>
+    <Name>Actuator Command Safety Limits</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce configured maximum speed and acceleration limits on actuator commands to maintain stable and safe robot motion within the maze environment.
+    </Content>
+  </Requirement>
+</Requirements>
+[2026-05-13--21:12:47]User: Your previous requirements were corrected
+
+<Findings version="1" source="LLR" source_version="1">
+  <Finding ID="LLR--1--1">
+    <ItemID>LL-EXPL-1.1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The low-level requirement LL-EXPL-1.1.1 constrains how requirements are typed (“no requirement shall be labeled with multiple types such as &quot;NFR / FR&quot;”), but the SRP explicitly defines that the type is carried in a dedicated &lt;Type&gt; tag with allowed values “FR” or “NFR”. LL-EXPL-1.1.1 is therefore a meta-process rule about requirements documentation rather than a system function or property. It does not describe behavior of the robot system and cannot be implemented or tested on the target system.
+    </Description>
+    <Solution>
+      Remove LL-EXPL-1.1.1 from the LLR set or move it into a separate process/documentation guideline outside of the product requirements. If you want a system-level constraint on internal type handling, rephrase it to describe system behavior (e.g., “The requirements management tool shall store each requirement with exactly one type attribute equal to ‘FR’ or ‘NFR’.”) and clearly separate such tooling requirements from the robot’s functional/non-functional requirements.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--2">
+    <ItemID>HL-EXPL-1.1</ItemID>
+    <Severity>Major</Severity>
+    <Description>
+      The high-level requirement HL-EXPL-1.1 has type “NFR / FR”, which violates SRP 3.3 where each requirement’s type must be either “FR” or “NFR”. Although LL-EXPL-1.1.1 attempts to “fix” this at the system level, the root cause is the incorrect HLR typing itself. This is a documentation/schema violation at HLR level that is not actually resolved by the LLR set.
+    </Description>
+    <Solution>
+      Correct HL-EXPL-1.1 in the HLR document so that its &lt;Type&gt; value is either “FR” or “NFR”, in line with SRP section 3.3. If HL-EXPL-1.1 is only an example and not an actual system requirement, remove it from the HLR set entirely to avoid ambiguity. Afterwards, LL-EXPL-1.1.1 can be revisited or removed as suggested in finding LLR--1--1.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--3">
+    <ItemID>LL-EXPL-1.2.5</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      LL-EXPL-1.2.5 requires a high-level state machine with at least the states &quot;Idle&quot;, &quot;Exploring&quot;, &quot;ReturningToStart&quot;, and &quot;SecondRun&quot;, but does not specify the concrete transition conditions or control inputs/outputs in sufficient detail to directly drive architecture design. The phrase “according to exploration completion and run control logic” is vague and does not define what triggers transitions (e.g., operator command, exploration termination conditions, completion of path execution).
+    </Description>
+    <Solution>
+      Refine LL-EXPL-1.2.5 into additional LLRs that explicitly state:
+      - The events/conditions that cause transitions between each pair of states (e.g., Idle→Exploring, Exploring→ReturningToStart, ReturningToStart→SecondRun, etc.).
+      - Whether transitions are triggered automatically based on exploration completion/time limit or require an external user command.
+      - The responsibilities of each state in terms of which other components they coordinate (e.g., path planner, motion control).
+      This will make it specific enough for architecture design of the state machine and its interfaces.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--4">
+    <ItemID>HL-INTERF-6.1</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      HL-INTERF-6.1 requires that “The system shall be able to process sensor data defined in the sensor data interface description”. The current LLR set (LL-INTERF-6.1.x, LL-EXPL-1.3.1, LL-MAP-2.1.2, LL-INTERF-6.1.3, LL-RELIAB-5.2.1, etc.) assumes the existence of a “sensor data interface description” but does not provide any low-level requirement that constrains or models this external interface sufficiently for architecture design. The format, transport, update rates, error handling, and addressing (topic/port IDs, etc.) are all delegated to an external document that is not captured as requirements.
+    </Description>
+    <Solution>
+      Add one or more LLRs under INTERF/6.1 that:
+      - Specify the key characteristics of the sensor interface needed for architecture (e.g., data transport mechanism, minimum/maximum update rates, latency bounds, required message fields, and allowable sizes).
+      - Define how the system shall behave when sensor messages are missing, delayed, or malformed at the interface boundary (beyond internal &quot;validation&quot;).
+      This will allow an architecture designer to define concrete interface components (e.g., communication layer, driver modules) without relying exclusively on an external descriptive document.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--5">
+    <ItemID>HL-INTERF-6.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      HL-INTERF-6.2 requires &quot;The system shall be able to send control commands to actuators with commands specified in motor interface description&quot;. The existing LLRs (LL-INTERF-6.2.1–6.2.4, plus usages in other LLRs) again reference an external “motor interface description” but do not capture sufficient low-level constraints for the output interface itself (e.g., communication protocol, timing guarantees, error handling, acknowledgement or feedback requirements) as requirements. This leaves aspects essential for architecture underspecified.
+    </Description>
+    <Solution>
+      Introduce additional LLRs under INTERF/6.2 that:
+      - Specify the required characteristics of the actuator command channel (transport, minimum update rate vs. maximum delay, whether commands are best-effort or acknowledged, precision and range of speed/angle values, etc.).
+      - Define how command failures or communication errors are to be detected and handled at the interface boundary.
+      These should be worded so an architecture designer can define components and communication patterns without relying solely on an external motor interface description.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--6">
+    <ItemID>HL-MAP-2.3</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      HL-MAP-2.3 requires “Robot shall complete mapping of the maze within 5 minutes.” The current LLRs (LL-MAP-2.3.1, LL-MAP-2.3.2, and LL-EXPL-1.2.3) implement a hard 5-minute limit and termination behavior, but they do not state any performance requirement or strategy that supports “completion” of mapping within 5 minutes (e.g., map coverage targets, minimum exploration speed, limits on computational load). As written, the system could simply terminate at 5 minutes even with very poor coverage and still technically satisfy the LLRs, which weakens the refinement of the HLR.
+    </Description>
+    <Solution>
+      Add at least one additional LLR under MAP/2.3 (and possibly EXPL/1.2) that links the time limit to a minimal mapping performance, for example:
+      - A requirement on minimum exploration velocity or decision frequency under nominal conditions, or
+      - A requirement on target coverage (e.g., “shall attempt to maximize coverage and reach a specified coverage threshold before the 5-minute limit when feasible under nominal conditions”).
+      Ensure wording remains testable, but explicit enough that “completion within 5 minutes” is meaningfully refined, not just limited by a timeout.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--7">
+    <ItemID>HL-EXPL-1.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      HL-EXPL-1.2 states “Robot shall autonomously explore an unknown maze.” While many LLRs refine behavior and mapping (EXPL, MAP, PLAN, RUN, RELIAB, INTERF), there is no explicit LLR specifying the external interface or trigger by which exploration is started or stopped from the user or supervisor perspective. LL-EXPL-1.2.1 defines &quot;exploration mode that, once activated&quot;, but does not specify how it shall be activated (e.g., user input, remote command, physical button), which is important for architecture design of the control and HMI interfaces.
+    </Description>
+    <Solution>
+      Add at least one LLR that:
+      - States how exploration mode is initiated and, if applicable, how it can be aborted by an operator (separately from emergency stop).
+      - Defines the interface (logical, not necessarily physical) through which this command is provided (e.g., “The system shall provide a command interface that allows an operator to start and stop exploration mode via ...”).
+      This will give architecture design clear external entry points and allow mapping of external components (e.g., UI, remote control) to the system.
+    </Solution>
+  </Finding>
+
+  <Finding ID="LLR--1--8">
+    <ItemID>HL-RELIAB-5.2</ItemID>
+    <Severity>Minor</Severity>
+    <Description>
+      HL-RELIAB-5.2 requires that &quot;The robot shall be able to handle faulty sensor data.&quot; Existing LLRs (LL-RELIAB-5.2.1–5.2.4, LL-RELIAB-5.1.2) cover validation, handling policy, degraded mode, and logging. However, none defines explicit thresholds or conditions for declaring a sensor “persistently faulty”, which is critical for architecture and implementation (state, timers, and detection logic). As-is, &quot;persistently faulty&quot; is ambiguous.
+    </Description>
+    <Solution>
+      Add a clarifying LLR under RELIAB/5.2 that defines criteria for persistent faults in a testable manner, for example:
+      - A percentage or count of consecutive faulty packets over a defined time window.
+      - Time-based thresholds for how long a sensor can remain in a faulty state before triggering degraded mode.
+      This will provide concrete inputs to the architecture (e.g., fault monitor components, timers) and remove ambiguity.
+    </Solution>
+  </Finding>
+</Findings> 
+
+Incorporate them into your previous requirements.
+
+This is the previous version of your requirements:
+<Requirements version="1" hierarchy="LLR">
+  <Requirement ID="LL-EXPL-1.1.1">
+    <Type>NFR</Type>
+    <Name>Requirement Type Disambiguation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify each requirement as either a Functional Requirement or a Non-Functional Requirement, and no requirement shall be labeled with multiple types such as "NFR / FR".
+    </Content>
+  </Requirement>
+
+  <!-- Exploration behaviour -->
+
+  <Requirement ID="LL-EXPL-1.2.1">
+    <Type>FR</Type>
+    <Name>Exploration Mode Activation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall provide an exploration mode that, once activated, shall cause the robot to autonomously navigate the maze without requiring further external commands other than an emergency stop.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.2">
+    <Type>FR</Type>
+    <Name>Exploration Coverage Strategy</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an exploration strategy that shall continually select the next movement target such that unvisited or unknown maze cells are preferentially visited until no reachable unknown cells remain.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.3">
+    <Type>FR</Type>
+    <Name>Exploration Termination Condition</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall terminate exploration mode when either all reachable cells are classified as free or blocked in the internal maze representation, or when the exploration time limit defined for maze mapping is reached.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.4">
+    <Type>FR</Type>
+    <Name>Exploration Motion Command Generation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall continuously generate motion commands (e.g., forward speed and rotational speed) during exploration mode such that the robot follows the currently selected exploration path while respecting active collision avoidance constraints.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.5">
+    <Type>FR</Type>
+    <Name>Exploration State Machine</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement a high-level state machine with at least the states "Idle", "Exploring", "ReturningToStart", and "SecondRun", and shall manage transitions between these states according to exploration completion and run control logic.
+    </Content>
+  </Requirement>
+
+  <!-- Wall detection and avoidance -->
+
+  <Requirement ID="LL-EXPL-1.3.1">
+    <Type>FR</Type>
+    <Name>Wall Detection from Sensor Data</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall process incoming range or proximity sensor data at a fixed update rate not lower than 20 Hz to estimate the presence and distance of walls in all directions covered by the sensors within the maze cell in front of the robot and in its current cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.2">
+    <Type>FR</Type>
+    <Name>Wall Proximity Thresholds</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall configure at least one safety distance threshold for each relevant direction (front, left, right) such that any detected wall closer than the corresponding threshold shall be considered an imminent collision risk.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.3">
+    <Type>FR</Type>
+    <Name>Real-Time Collision Avoidance Control</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall, upon detecting a wall within the configured safety distance in the direction of motion, adjust or override the current motion command within one sensor update cycle to prevent the robot from moving closer to the wall.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.4">
+    <Type>FR</Type>
+    <Name>Wall-Following Behaviour</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall optionally support a wall-following behaviour (e.g., left-hand or right-hand rule) that uses wall distance estimates to maintain a desired lateral distance from a wall when exploring narrow corridors.
+    </Content>
+  </Requirement>
+
+  <!-- Map creation and cell classification -->
+
+  <Requirement ID="LL-MAP-2.1.1">
+    <Type>FR</Type>
+    <Name>Maze Coordinate System Definition</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall define a discrete maze coordinate system consisting of grid cells, where each cell is identified by integer coordinates (x, y) with a configurable cell size corresponding to the physical maze structure.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.2">
+    <Type>FR</Type>
+    <Name>Robot Pose Estimation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall estimate the robot pose as (x, y, heading) in maze coordinates by integrating wheel encoder or odometry data and, if available, inertial measurements, updating this estimate at least at 20 Hz.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.3">
+    <Type>FR</Type>
+    <Name>Pose to Cell Mapping</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall map the current estimated robot pose to a corresponding maze grid cell and update this cell index whenever the robot crosses a cell boundary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.4">
+    <Type>FR</Type>
+    <Name>Internal Maze Data Structure</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall maintain an internal data structure representing the maze grid, where each cell stores at least its classification state (free, blocked, unknown) and wall existence flags for its four sides (north, east, south, west).
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.1">
+    <Type>FR</Type>
+    <Name>Initial Cell State</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall initialize every cell in the internal maze representation with the classification state "unknown" before exploration starts.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.2">
+    <Type>FR</Type>
+    <Name>Free Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "free" when the robot has occupied that cell and sensor data indicate no blocking walls within the traversable area of that cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.3">
+    <Type>FR</Type>
+    <Name>Blocked Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "blocked" when sensor data indicate that the cell is not traversable due to the presence of walls or obstacles across its entrance or interior.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.4">
+    <Type>FR</Type>
+    <Name>Unknown Cell Preservation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the classification state of a cell as "unknown" until sufficient sensor data have been acquired to classify it as "free" or "blocked".
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.5">
+    <Type>FR</Type>
+    <Name>Wall Existence Update</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update the wall existence flags for the sides of the current and adjacent cells based on processed sensor readings, ensuring consistency such that a wall on one side of a cell implies a corresponding wall on the adjacent cell side.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.5">
+    <Type>FR</Type>
+    <Name>Map Persistence During Run</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the internal maze representation in memory and accessible to other software components for the entire duration of exploration, return, and second run.
+    </Content>
+  </Requirement>
+
+  <!-- Time constraint for mapping -->
+
+  <Requirement ID="LL-MAP-2.3.1">
+    <Type>NFR</Type>
+    <Name>Mapping Time Limit Enforcement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce a hard time limit of 5 minutes from the start of exploration mode for maze mapping, after which exploration mode shall be terminated and the exploration completion procedure shall be triggered.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3.2">
+    <Type>NFR</Type>
+    <Name>Mapping Time Measurement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall measure elapsed mapping time using a monotonic clock that is not affected by system time adjustments.
+    </Content>
+  </Requirement>
+
+  <!-- Path planning -->
+
+  <Requirement ID="LL-PLAN-3.1.1">
+    <Type>FR</Type>
+    <Name>Path Planning Grid Graph</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall construct a planning graph from the internal maze representation where each traversable cell is a node and edges exist between adjacent free cells that are not separated by walls.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.2">
+    <Type>FR</Type>
+    <Name>Path Planning Invocation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall invoke the path planning algorithm to compute a path from the robot&apos;s current cell to a specified target cell, including at least the start cell, the maze exit cell or goal cell, and the start cell for return.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.3">
+    <Type>FR</Type>
+    <Name>Shortest Path Computation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall use a shortest-path algorithm such as Dijkstra or A* with non-negative edge costs to compute a path that minimizes total path cost, where cost is at least proportional to the number of traversed cells.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.4">
+    <Type>FR</Type>
+    <Name>Path Representation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall represent a planned path as an ordered sequence of maze cells or movement segments, including at least the sequence of turns and forward movements required to traverse from start to target.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.5">
+    <Type>FR</Type>
+    <Name>Unreachable Target Handling</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect when no path exists between the start cell and the target cell in the planning graph, and in this case shall report the target as unreachable to the higher-level control logic.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.6">
+    <Type>FR</Type>
+    <Name>Path Replanning Capability</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall support re-running the path planning algorithm during operation when the maze map is updated in a way that may yield a shorter or newly available path.
+    </Content>
+  </Requirement>
+
+  <!-- Return to start -->
+
+  <Requirement ID="LL-RUN-4.1.1">
+    <Type>FR</Type>
+    <Name>Start Cell Identification</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall record the maze cell corresponding to the robot&apos;s initial pose as the start cell at the beginning of exploration.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.2">
+    <Type>FR</Type>
+    <Name>Return Path Planning</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      Upon exploration completion, the system shall compute a path from the robot&apos;s current cell to the recorded start cell using the path planning component.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.3">
+    <Type>FR</Type>
+    <Name>Return Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall command the robot to follow the computed path back to the start cell by generating appropriate actuator commands for each segment while still applying collision avoidance.
+    </Content>
+  </Requirement>
+
+  <!-- Second run and efficient path execution -->
+
+  <Requirement ID="LL-RUN-4.2.1">
+    <Type>FR</Type>
+    <Name>Second Run Initiation</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      After the robot has returned to the start cell, the system shall initiate a second run mode that uses the final maze map to traverse from the start cell to the target cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.2.2">
+    <Type>FR</Type>
+    <Name>Target Cell Definition</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall allow configuration of the target cell, such as the maze goal cell or finish area, and shall use this cell as the destination for the second run.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.1">
+    <Type>FR</Type>
+    <Name>Efficient Path Selection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall use the shortest-path algorithm on the final maze map to compute the most efficient path from the start cell to the target cell for the second run, minimizing at least the total number of cell transitions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.2">
+    <Type>FR</Type>
+    <Name>Second Run Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      During the second run, the system shall command the robot to follow the selected efficient path by issuing time- or distance-parameterized motion commands for each planned movement segment while still enforcing collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.3">
+    <Type>FR</Type>
+    <Name>Second Run Completion Detection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect completion of the second run when the robot enters the target cell and stops all forward motion commands.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: collision avoidance -->
+
+  <Requirement ID="LL-RELIAB-5.1.1">
+    <Type>NFR</Type>
+    <Name>Collision-Free Distance Margin</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall ensure that, under nominal sensor and actuator conditions, the control logic never commands the robot to move such that the estimated minimum distance to any detected wall becomes less than a configured safety margin greater than zero.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.1.2">
+    <Type>NFR</Type>
+    <Name>Emergency Stop Mechanism</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an emergency stop mechanism that, upon detecting an imminent collision or inconsistent sensor readings indicating possible collision, shall immediately command zero velocity to the actuators.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: fault tolerance -->
+
+  <Requirement ID="LL-RELIAB-5.2.1">
+    <Type>NFR</Type>
+    <Name>Sensor Data Validation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall perform validation on each received sensor data packet, including range checks and consistency checks between redundant sensors when available, and shall mark data that fail validation as faulty.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.2">
+    <Type>NFR</Type>
+    <Name>Faulty Data Handling Policy</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall ignore or down-weight faulty sensor measurements in mapping and collision avoidance computations and shall fall back to last known valid measurements or conservative assumptions when necessary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.3">
+    <Type>NFR</Type>
+    <Name>Degraded Mode Operation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      When a critical sensor is detected as persistently faulty, the system shall switch to a degraded operation mode that restricts robot speed, reduces exploration aggressiveness, or halts exploration according to a predefined policy.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.4">
+    <Type>NFR</Type>
+    <Name>Sensor Fault Logging</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall log occurrences of detected faulty sensor data with at least a timestamp and sensor identifier for subsequent analysis.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: sensor processing -->
+
+  <Requirement ID="LL-INTERF-6.1.1">
+    <Type>FR</Type>
+    <Name>Sensor Data Acquisition Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an input interface that receives sensor data messages as specified in the sensor data interface description, including at least range, encoder, and optional inertial measurements.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.2">
+    <Type>FR</Type>
+    <Name>Sensor Data Timestamping</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall associate each received sensor data message with a timestamp from a monotonic clock and use these timestamps for pose estimation and time-based filtering.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.3">
+    <Type>FR</Type>
+    <Name>Sensor Data Fusion</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall fuse data from multiple sensors according to the sensor data interface description to produce consistent estimates of robot pose and wall distances for use by mapping, planning, and control components.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: actuator control -->
+
+  <Requirement ID="LL-INTERF-6.2.1">
+    <Type>FR</Type>
+    <Name>Actuator Command Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an output interface that sends motor control commands as specified in the motor interface description, including at least target wheel speeds or linear and angular velocities.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.2">
+    <Type>FR</Type>
+    <Name>Control Loop Frequency</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update actuator commands at a fixed control loop frequency of at least 20 Hz to ensure responsive motion control and collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.3">
+    <Type>FR</Type>
+    <Name>Low-Level Motion Primitives</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall expose low-level motion primitives such as "drive forward for distance", "rotate by angle", and "stop", implemented via appropriate sequences of motor commands according to the motor interface description.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.4">
+    <Type>FR</Type>
+    <Name>Actuator Command Safety Limits</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce configured maximum speed and acceleration limits on actuator commands to maintain stable and safe robot motion within the maze environment.
+    </Content>
+  </Requirement>
+</Requirements>
+
+and These are the High Level Requirements
+<?xml version="1.0" ?>
+<Requirements version="1" hierarchy="HLR">
+  <Requirement ID="HL-EXPL-1.1">
+    <Type>NFR / FR</Type>
+    <Name>Example</Name>
+    <Content>Example Description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.2">
+    <Type>FR</Type>
+    <Name>Explore Maze</Name>
+    <Content>Robot shall autonomously explore an unknown maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-EXPL-1.3">
+    <Type>FR</Type>
+    <Name>Wall Detection</Name>
+    <Content>Robot shall detect and avoid walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.1">
+    <Type>FR</Type>
+    <Name>Create Map</Name>
+    <Content>Robot shall create an internal representation of the maze</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.2">
+    <Type>FR</Type>
+    <Name>Cell Clasification</Name>
+    <Content>Robot shall distinguish between free, blocked, and unknown areas</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-MAP-2.3">
+    <Type>NFR</Type>
+    <Name>Time Constraint</Name>
+    <Content>Robot shall complete mapping of the maze within 5 minutes</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-PLAN-3.1">
+    <Type>FR</Type>
+    <Name>Path Planning</Name>
+    <Content>Robot shall compute an optimal path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.1">
+    <Type>FR</Type>
+    <Name>Return to Start</Name>
+    <Content>Robot shall return to start after the exploration is done</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.2">
+    <Type>FR</Type>
+    <Name>Second Run</Name>
+    <Content>Robot shall perform a second run after exploration</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RUN-4.3">
+    <Type>FR</Type>
+    <Name>Efficient Path Execution</Name>
+    <Content>Second run shall follow the most efficient path to the target</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.1">
+    <Type>NFR</Type>
+    <Name>Collision Avoidance</Name>
+    <Content>The robot shall not collide with walls</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-RELIAB-5.2">
+    <Type>NFR</Type>
+    <Name>Fault Tolerance</Name>
+    <Content>The robot shall be able to handle faulty sensor data</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.1">
+    <Type>FR</Type>
+    <Name>Sensor Processing</Name>
+    <Content>The system shall be able to process sensor data defined in the sensor data interface description</Content>
+    <Relationships/>
+  </Requirement>
+  <Requirement ID="HL-INTERF-6.2">
+    <Type>FR</Type>
+    <Name>Actuator Control</Name>
+    <Content>The system shall be able to send control commands to actuators with commands specified in motor interface description</Content>
+    <Relationships/>
+  </Requirement>
+</Requirements>
+
+
+Answer with the Low Level Requirements
+
+
+[2026-05-13--21:13:35]Agent: <Requirements version="2" hierarchy="LLR">
+  <!-- Exploration behaviour -->
+
+  <Requirement ID="LL-EXPL-1.2.1">
+    <Type>FR</Type>
+    <Name>Exploration Mode Activation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall provide an exploration mode that, once activated, shall cause the robot to autonomously navigate the maze without requiring further external commands other than an emergency stop.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.2">
+    <Type>FR</Type>
+    <Name>Exploration Coverage Strategy</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an exploration strategy that shall continually select the next movement target such that unvisited or unknown maze cells are preferentially visited until no reachable unknown cells remain.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.3">
+    <Type>FR</Type>
+    <Name>Exploration Termination Condition</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall terminate exploration mode when either all reachable cells are classified as free or blocked in the internal maze representation, or when the exploration time limit defined for maze mapping is reached.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.4">
+    <Type>FR</Type>
+    <Name>Exploration Motion Command Generation</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall continuously generate motion commands, including at least forward speed and rotational speed, during exploration mode such that the robot follows the currently selected exploration path while respecting active collision avoidance constraints.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.5">
+    <Type>FR</Type>
+    <Name>Exploration State Machine</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement a high-level state machine with at least the states "Idle", "Exploring", "ReturningToStart", and "SecondRun" and shall use this state machine to coordinate activation of exploration, return-to-start, and second-run behaviours.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.6">
+    <Type>FR</Type>
+    <Name>State Machine Transitions</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall define the following state transitions in the high-level state machine:
+      a) "Idle" shall transition to "Exploring" upon reception of a start-exploration command from the external run control interface.
+      b) "Exploring" shall transition to "ReturningToStart" when exploration termination conditions are met according to the maze mapping completion and time limit.
+      c) "ReturningToStart" shall transition to "SecondRun" when the robot has reached the recorded start cell and a valid efficient path to the target cell has been computed.
+      d) "SecondRun" shall transition to "Idle" when the robot has reached the target cell and stopped.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.7">
+    <Type>FR</Type>
+    <Name>State Responsibilities</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall assign the following responsibilities to the high-level states:
+      a) In "Idle", the system shall command zero motion and shall not perform exploration, mapping updates beyond localization, or path execution.
+      b) In "Exploring", the system shall perform maze exploration and mapping and shall generate motion commands according to the exploration strategy.
+      c) In "ReturningToStart", the system shall plan and execute a path from the current cell to the start cell while still updating the map and enforcing collision avoidance.
+      d) In "SecondRun", the system shall execute the precomputed efficient path from the start cell to the target cell while enforcing collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.8">
+    <Type>FR</Type>
+    <Name>Exploration Control Interface</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall provide a run control interface that allows an external operator or supervisor component to issue start and stop exploration commands, where:
+      a) A start-exploration command shall cause a transition from "Idle" to "Exploring".
+      b) A stop-exploration command shall cause a transition from "Exploring" to "Idle" after the robot has safely stopped.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.2.9">
+    <Type>FR</Type>
+    <Name>Exploration Abort Handling</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall, upon receiving an operator stop-exploration command or detecting an unrecoverable fault, abort exploration by commanding a stop, disabling further autonomous motion, and transitioning the high-level state machine to "Idle".
+    </Content>
+  </Requirement>
+
+  <!-- Wall detection and avoidance -->
+
+  <Requirement ID="LL-EXPL-1.3.1">
+    <Type>FR</Type>
+    <Name>Wall Detection from Sensor Data</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall process incoming range or proximity sensor data at a fixed update rate not lower than 20 Hz to estimate the presence and distance of walls in all directions covered by the sensors within the maze cell in front of the robot and in its current cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.2">
+    <Type>FR</Type>
+    <Name>Wall Proximity Thresholds</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall configure at least one safety distance threshold for each relevant direction, including front, left, and right, such that any detected wall closer than the corresponding threshold shall be considered an imminent collision risk.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.3">
+    <Type>FR</Type>
+    <Name>Real-Time Collision Avoidance Control</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall, upon detecting a wall within the configured safety distance in the direction of motion, adjust or override the current motion command within one sensor update cycle to prevent the robot from moving closer to the wall.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-EXPL-1.3.4">
+    <Type>FR</Type>
+    <Name>Wall-Following Behaviour</Name>
+    <Relationships>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall optionally support a wall-following behaviour, including at least a left-hand or right-hand rule, that uses wall distance estimates to maintain a desired lateral distance from a wall when exploring narrow corridors.
+    </Content>
+  </Requirement>
+
+  <!-- Map creation and cell classification -->
+
+  <Requirement ID="LL-MAP-2.1.1">
+    <Type>FR</Type>
+    <Name>Maze Coordinate System Definition</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall define a discrete maze coordinate system consisting of grid cells, where each cell is identified by integer coordinates (x, y) with a configurable cell size corresponding to the physical maze structure.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.2">
+    <Type>FR</Type>
+    <Name>Robot Pose Estimation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall estimate the robot pose as (x, y, heading) in maze coordinates by integrating wheel encoder or odometry data and, if available, inertial measurements, updating this estimate at least at 20 Hz.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.3">
+    <Type>FR</Type>
+    <Name>Pose to Cell Mapping</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall map the current estimated robot pose to a corresponding maze grid cell and update this cell index whenever the robot crosses a cell boundary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.4">
+    <Type>FR</Type>
+    <Name>Internal Maze Data Structure</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall maintain an internal data structure representing the maze grid, where each cell stores at least its classification state, which shall be one of free, blocked, or unknown, and wall existence flags for its four sides, which shall be north, east, south, and west.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.1">
+    <Type>FR</Type>
+    <Name>Initial Cell State</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall initialize every cell in the internal maze representation with the classification state "unknown" before exploration starts.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.2">
+    <Type>FR</Type>
+    <Name>Free Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "free" when the robot has occupied that cell and sensor data indicate no blocking walls within the traversable area of that cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.3">
+    <Type>FR</Type>
+    <Name>Blocked Cell Classification</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall classify a maze cell as "blocked" when sensor data indicate that the cell is not traversable due to the presence of walls or obstacles across its entrance or interior.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.4">
+    <Type>FR</Type>
+    <Name>Unknown Cell Preservation</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the classification state of a cell as "unknown" until sufficient sensor data have been acquired to classify it as "free" or "blocked".
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.2.5">
+    <Type>FR</Type>
+    <Name>Wall Existence Update</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update the wall existence flags for the sides of the current and adjacent cells based on processed sensor readings, and shall ensure consistency such that a wall on one side of a cell implies a corresponding wall on the adjacent cell side.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.1.5">
+    <Type>FR</Type>
+    <Name>Map Persistence During Run</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall keep the internal maze representation in memory and accessible to other software components for the entire duration of exploration, return, and second run.
+    </Content>
+  </Requirement>
+
+  <!-- Time constraint for mapping -->
+
+  <Requirement ID="LL-MAP-2.3.1">
+    <Type>NFR</Type>
+    <Name>Mapping Time Limit Enforcement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce a hard time limit of 5 minutes from the start of exploration mode for maze mapping, after which exploration mode shall be terminated and the exploration completion procedure shall be triggered.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3.2">
+    <Type>NFR</Type>
+    <Name>Mapping Time Measurement</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall measure elapsed mapping time using a monotonic clock that is not affected by system time adjustments.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3.3">
+    <Type>NFR</Type>
+    <Name>Mapping Coverage Performance</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      Under nominal sensor and actuator conditions, the system shall attempt to maximize coverage of reachable maze cells and shall target covering at least 90 percent of the reachable cells within the 5 minute mapping time limit by selecting movement targets and speeds that favor visiting unknown cells.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-MAP-2.3.4">
+    <Type>NFR</Type>
+    <Name>Minimum Exploration Speed</Name>
+    <Relationships>
+      <Refines>HL-MAP-2.3</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      Under nominal sensor and actuator conditions in straight, unobstructed corridors, the system shall command a forward speed that results in an average translational velocity not lower than a configured minimum value, which shall be chosen to support achieving the mapping coverage target within 5 minutes.
+    </Content>
+  </Requirement>
+
+  <!-- Path planning -->
+
+  <Requirement ID="LL-PLAN-3.1.1">
+    <Type>FR</Type>
+    <Name>Path Planning Grid Graph</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall construct a planning graph from the internal maze representation where each traversable cell is a node and edges exist between adjacent free cells that are not separated by walls.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.2">
+    <Type>FR</Type>
+    <Name>Path Planning Invocation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall invoke the path planning algorithm to compute a path from the robot&apos;s current cell to a specified target cell, including at least the start cell, the maze exit or goal cell, and the start cell for return.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.3">
+    <Type>FR</Type>
+    <Name>Shortest Path Computation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall use a shortest-path algorithm, including at least Dijkstra or A*, with non-negative edge costs to compute a path that minimizes total path cost, where cost is at least proportional to the number of traversed cells.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.4">
+    <Type>FR</Type>
+    <Name>Path Representation</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall represent a planned path as an ordered sequence of maze cells or movement segments, including at least the sequence of turns and forward movements required to traverse from start to target.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.5">
+    <Type>FR</Type>
+    <Name>Unreachable Target Handling</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect when no path exists between the start cell and the target cell in the planning graph, and in this case shall report the target as unreachable to the higher-level control logic.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-PLAN-3.1.6">
+    <Type>FR</Type>
+    <Name>Path Replanning Capability</Name>
+    <Relationships>
+      <Refines>HL-PLAN-3.1</Refines>
+      <Refines>HL-MAP-2.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall support re-running the path planning algorithm during operation when the maze map is updated in a way that may yield a shorter or newly available path.
+    </Content>
+  </Requirement>
+
+  <!-- Return to start -->
+
+  <Requirement ID="LL-RUN-4.1.1">
+    <Type>FR</Type>
+    <Name>Start Cell Identification</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall record the maze cell corresponding to the robot&apos;s initial pose as the start cell at the beginning of exploration.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.2">
+    <Type>FR</Type>
+    <Name>Return Path Planning</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      Upon exploration completion, the system shall compute a path from the robot&apos;s current cell to the recorded start cell using the path planning component.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.1.3">
+    <Type>FR</Type>
+    <Name>Return Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.1</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall command the robot to follow the computed path back to the start cell by generating appropriate actuator commands for each segment while still applying collision avoidance.
+    </Content>
+  </Requirement>
+
+  <!-- Second run and efficient path execution -->
+
+  <Requirement ID="LL-RUN-4.2.1">
+    <Type>FR</Type>
+    <Name>Second Run Initiation</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      After the robot has returned to the start cell, the system shall initiate a second run mode that uses the final maze map to traverse from the start cell to the target cell.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.2.2">
+    <Type>FR</Type>
+    <Name>Target Cell Definition</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall allow configuration of the target cell, such as the maze goal cell or finish area, and shall use this cell as the destination for the second run.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.1">
+    <Type>FR</Type>
+    <Name>Efficient Path Selection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-PLAN-3.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall use the shortest-path algorithm on the final maze map to compute the most efficient path from the start cell to the target cell for the second run, minimizing at least the total number of cell transitions.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.2">
+    <Type>FR</Type>
+    <Name>Second Run Path Execution</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      During the second run, the system shall command the robot to follow the selected efficient path by issuing time- or distance-parameterized motion commands for each planned movement segment while still enforcing collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RUN-4.3.3">
+    <Type>FR</Type>
+    <Name>Second Run Completion Detection</Name>
+    <Relationships>
+      <Refines>HL-RUN-4.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect completion of the second run when the robot enters the target cell and stops all forward motion commands.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: collision avoidance -->
+
+  <Requirement ID="LL-RELIAB-5.1.1">
+    <Type>NFR</Type>
+    <Name>Collision-Free Distance Margin</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall ensure that, under nominal sensor and actuator conditions, the control logic never commands the robot to move such that the estimated minimum distance to any detected wall becomes less than a configured safety margin greater than zero.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.1.2">
+    <Type>NFR</Type>
+    <Name>Emergency Stop Mechanism</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.1</Refines>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an emergency stop mechanism that, upon detecting an imminent collision or inconsistent sensor readings indicating possible collision, shall immediately command zero velocity to the actuators.
+    </Content>
+  </Requirement>
+
+  <!-- Reliability: fault tolerance -->
+
+  <Requirement ID="LL-RELIAB-5.2.1">
+    <Type>NFR</Type>
+    <Name>Sensor Data Validation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall perform validation on each received sensor data packet, including range checks and consistency checks between redundant sensors when available, and shall mark data that fail validation as faulty.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.2">
+    <Type>NFR</Type>
+    <Name>Faulty Data Handling Policy</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall ignore or down-weight faulty sensor measurements in mapping and collision avoidance computations and shall fall back to last known valid measurements or conservative assumptions when necessary.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.3">
+    <Type>NFR</Type>
+    <Name>Degraded Mode Operation</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+    </Relationships>
+    <Content>
+      When a critical sensor is detected as persistently faulty, the system shall switch to a degraded operation mode that restricts robot speed, reduces exploration aggressiveness, or halts exploration according to a predefined policy.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.4">
+    <Type>NFR</Type>
+    <Name>Sensor Fault Logging</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall log occurrences of detected faulty sensor data with at least a timestamp and sensor identifier for subsequent analysis.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-RELIAB-5.2.5">
+    <Type>NFR</Type>
+    <Name>Persistent Fault Detection Criteria</Name>
+    <Relationships>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall declare a sensor as persistently faulty when either more than a configured percentage of its messages within a configurable time window are marked as faulty or when a configured number of consecutive messages are marked as faulty, and shall use this condition to trigger degraded mode operation.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: sensor processing -->
+
+  <Requirement ID="LL-INTERF-6.1.1">
+    <Type>FR</Type>
+    <Name>Sensor Data Acquisition Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an input interface that receives sensor data messages as specified in the sensor data interface description, including at least range, encoder, and optional inertial measurements.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.2">
+    <Type>FR</Type>
+    <Name>Sensor Data Timestamping</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall associate each received sensor data message with a timestamp from a monotonic clock and shall use these timestamps for pose estimation and time-based filtering.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.3">
+    <Type>FR</Type>
+    <Name>Sensor Data Fusion</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+      <Refines>HL-MAP-2.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall fuse data from multiple sensors according to the sensor data interface description to produce consistent estimates of robot pose and wall distances for use by mapping, planning, and control components.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.4">
+    <Type>FR</Type>
+    <Name>Sensor Transport Characteristics</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall support a sensor data transport mechanism that delivers sensor messages to the processing components with a maximum end-to-end latency not greater than a configured value and an update rate not lower than the minimum processing rate required by wall detection and localization components.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.5">
+    <Type>FR</Type>
+    <Name>Sensor Message Format Constraints</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall require that each sensor message contain at least a sensor identifier, timestamp, and payload fields for the configured sensor types, and shall reject messages that do not conform to the expected format or exceed a configured maximum size.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.1.6">
+    <Type>FR</Type>
+    <Name>Sensor Interface Error Handling</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.1</Refines>
+      <Refines>HL-RELIAB-5.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect missing, delayed, or malformed sensor messages at the sensor interface boundary, shall treat such conditions as faulty data for the purpose of validation and fault tolerance logic, and shall log these events together with the affected sensor identifier and a timestamp.
+    </Content>
+  </Requirement>
+
+  <!-- Interfaces: actuator control -->
+
+  <Requirement ID="LL-INTERF-6.2.1">
+    <Type>FR</Type>
+    <Name>Actuator Command Interface</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall implement an output interface that sends motor control commands as specified in the motor interface description, including at least target wheel speeds or linear and angular velocities.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.2">
+    <Type>FR</Type>
+    <Name>Control Loop Frequency</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-EXPL-1.2</Refines>
+      <Refines>HL-EXPL-1.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall update actuator commands at a fixed control loop frequency of at least 20 Hz to ensure responsive motion control and collision avoidance.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.3">
+    <Type>FR</Type>
+    <Name>Low-Level Motion Primitives</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RUN-4.3</Refines>
+    </Relationships>
+    <Content>
+      The system shall expose low-level motion primitives such as "drive forward for distance", "rotate by angle", and "stop", and shall implement each primitive via appropriate sequences of motor commands according to the motor interface description.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.4">
+    <Type>FR</Type>
+    <Name>Actuator Command Safety Limits</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall enforce configured maximum speed and acceleration limits on actuator commands to maintain stable and safe robot motion within the maze environment.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.5">
+    <Type>FR</Type>
+    <Name>Actuator Transport Characteristics</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall send actuator command messages using a transport mechanism that guarantees that commands are delivered to the motor controllers with a maximum end-to-end latency not greater than a configured value compatible with the control loop frequency.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.6">
+    <Type>FR</Type>
+    <Name>Actuator Command Range and Precision</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+    </Relationships>
+    <Content>
+      The system shall generate actuator commands such that commanded speeds and angles remain within the numeric range and resolution specified for the motor interface and shall saturate or quantize values that exceed supported limits.
+    </Content>
+  </Requirement>
+
+  <Requirement ID="LL-INTERF-6.2.7">
+    <Type>FR</Type>
+    <Name>Actuator Interface Error Handling</Name>
+    <Relationships>
+      <Refines>HL-INTERF-6.2</Refines>
+      <Refines>HL-RELIAB-5.1</Refines>
+    </Relationships>
+    <Content>
+      The system shall detect actuator command transmission errors or missing acknowledgements from the motor controllers when acknowledgements are supported, shall log these events with a timestamp, and shall command an emergency stop if the error persists for longer than a configured timeout.
+    </Content>
+  </Requirement>
+</Requirements>
+[2026-05-13--21:13:35]User:  <Requirements\Low Level Requirements\Generated\Low Level Requirements_2.xml>
+
+Now Answer with a Answer Document detailing your Reasoning and Showing your justifications
+
+
+[2026-05-13--21:13:39]Agent: help The instructions you gave at the beginning say: “Whenever an output is requested answer only with the output, otherwise answer only with `check`”. They also say: “Make sure to ONLY answer with the output xml when requested.”
+
+Your last request is for “an Answer Document detailing your Reasoning and Showing your justifications”, which by nature is not the XML output defined in the SRP, and would require me to explain my reasoning in prose.
+
+Could you clarify whether you want me to:
+1) Strictly follow the earlier rule (in which case I should not provide a reasoning document and instead only respond with `check`), or  
+2) Temporarily override that rule and provide a textual reasoning/justification document for the LLR changes?

@@ -5,9 +5,9 @@ The creator of the Original Document has to process each Finding and either impl
 
 Findings Document Structure
 1. Findings are to be structured using XML files.
-3. A Findings Document always contain findings of only one document
-4. All documents must start with the <Findings> tag.
-5. The <Findings> tag must have three attributes:
+2. A Findings Document always contain findings of only one document
+3. All documents must start with the <Findings> tag.
+4. The <Findings> tag must have three attributes:
    a. “version”: the findings documents version
    b. “source”: specifies the type of document the findings reference
    c. “source_version”: specifies the version of the source document
@@ -54,9 +54,9 @@ Severity
     Catastrophic findings need to have the Rollback Phase child, indicating to which phase the process needs to be rolled back to fix the problem.
     It is advised to only roll back to the previous phase, but it is possible to rollback multiple phases
     The phases are as follows:
-    a. "High Level Design"
-    b. "Low Level Design"
-    c. "Architecture Design"
+    a. "High Level Requirements"
+    b. "Low Level Requirements"
+    c. "Design"
     d. "Implementation"
 
 

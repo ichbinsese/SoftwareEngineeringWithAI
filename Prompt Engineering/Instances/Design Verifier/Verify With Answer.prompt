@@ -1,0 +1,14 @@
+Your previous findings were incorporated into the Design.
+Here are the two documents, containing the Design and LLRs
+{{Design}}
+{{LLRAs}}
+
+Here is the Answer from the Engineer incorporating your Findings
+
+{{file}} <Design\Documents\Answers\Design Answers_{{iteration}}<da>.xml>
+
+
+Verify the correct incorporation, Verify the Justifications, and check for further mistakes and answer with findings
+
+{send}
+{store} <Design\Documents\Findings\Design Findings_{{iteration}}<df>.xml>

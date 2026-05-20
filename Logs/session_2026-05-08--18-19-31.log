@@ -1,0 +1,130 @@
+Log of Software Engineer
+[2026-05-08--18:19:31]User: You will be supplied with the Requirements Policy for the company you work for, it is integral that you follow them when writing your Low Level Requirements.
+Afterwards you will be supplied with High Level Requirements, that you have to refine use your entire knowledgebase to do this, while keeping with the requirement policy
+Whenever an output is requested answer only with the output, otherwise answer only with "check", whenever you understand your task, and with "help", following with you problem whenever a problem occurs.
+This is the Requirement Policy you have to learn:
+Software Requirements Policy (SRP)
+Version 1.0
+
+1. Format
+1.1 Structure Description
+
+1.1.1 Document Structure
+1. Requirements are to be structured using XML files.
+2. An XML file must either contain only High Level Requirements or only Low Level Requirements.
+3. All documents must start with the <Requirements> tag.
+4. The <Requirements> tag must have two attributes:
+   a. “version”: the file's version
+   b. “hierarchy”: specifies if the file contains only High Level Requirements (“HLR”) or only Low Level Requirements (“LLR”)
+
+1.1.2 Requirement Structure
+5. Below the <Requirements> tag, every requirement must be stored inside its own <Requirement> tag.
+   a. The <Requirement> tag must contain “type”, denoting whether it is Functional Requirement (“FR”) or Non-Functional Requirement (“NFR”)
+
+6. Each <Requirement> must contain the following child tags:
+   a. <ID>: unique identifier for the requirement
+   b. <Name>: name of the requirement
+   c. <Content>: description of the requirement
+   d. <Relationships>: contains relationships to other requirements
+
+1.1.3 HLR Relationships
+7. When defining a High Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a High-Level Requirement that this requirement depends on.
+
+1.1.4 LLR Relationships
+8. When defining a Low Level Requirement, the <Relationships> tag can contain zero or more of the following:
+   a. <DependsOn>: each containing the ID of a Low-Level Requirement that this requirement depends on.
+   b. <Refines>: each containing the ID of a High-Level Requirement this requirement refines.
+
+1.2 Structure Template
+
+1.2.1 High-Level Requirements
+<Requirements version="{version}" hierarchy="HLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <DependsOn>{HLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each High Level Requirement -->
+</Requirements>
+
+1.2.2 Low-Level Requirements
+<Requirements version="{version}" hierarchy="LLR">
+   <Requirement ID="{Requirement ID}">
+       <Type>{Requirement Type}</Type>
+       <Name>{Requirement Name}</Name>
+       <Relationships>
+           <Refines>{HLR this one refines}</Refines>
+           <DependsOn>{LLR this one depends on}</DependsOn>
+       </Relationships>
+       <Content>
+           {Requirement Content}
+       </Content>
+   </Requirement>
+   <!-- Repeat for each Low Level Requirement -->
+</Requirements>
+
+2. Traceability
+2.1 Relationships
+
+2.1.1 Refines
+1. The Refines property is only applicable for Low-level requirements.
+2. Only High-level requirements can be the target of the Refines relationship.
+3. The Low-level requirement must not contradict the High-level requirements it refines.
+4. Every part of any High-level requirement must be refined into a Low-level requirement.
+5. Any part of any Low-level requirement must be traceable to a refined High-level requirement.
+
+2.1.2 Depends On
+1. The Depends On property is applicable for Low and High Level Requirements.
+2. It describes a dependency between two requirements on the same or different layers
+3. A requirements that refines another, cant point to it with the depends on property
+
+3. Content
+3.1 Hierarchy
+
+3.1.1 High-Level Requirements
+1. High-level requirements should be relatively broad in scope.
+2. High-level requirements should describe the system capabilities.
+3. High-level requirements must be testable.
+4. High-level requirements must be implementable.
+5. High-level requirements must be refined by at least one Low-level requirement.
+
+3.1.2 Low-Level Requirements
+6. Low-level requirements must always refine at least one High-level requirement, and can refine multiple if needed.
+7. Low-level requirements should describe a specific system function.
+8. Low-level requirements must be testable.
+9. Low-level requirements must be implementable.
+
+3.2 Identification
+1. The content of the <ID> tag must conform to the pattern:
+   “{level}-{category}-{section}.{item}”
+   a. {level}: HL or LL
+   b. {category}: category code (e.g., UI)
+   c. {section}: major part of category
+   d. {item}: sub-item (0 describes category)
+
+2. The content of the <Name> tag must be a short description of the requirement.
+
+3.3 Type
+Type is noted in the type attribute of each requirement
+3.3.1 Functional Requirements
+Describe concrete functions of the system.
+In the type attribute it is noted as "FR"
+
+3.3.2 Non-Functional Requirements
+Describe restrictions placed on the system.
+In the type attribute it is noted as "NFR"
+
+3.4 Wording
+1. Requirements must be expressed in plain English using "shall".
+2. Requirements must be understandable on their own.
+3. Requirements must be unambiguous.
+ 
+
+
+[2026-05-08--18:19:38]Agent: check

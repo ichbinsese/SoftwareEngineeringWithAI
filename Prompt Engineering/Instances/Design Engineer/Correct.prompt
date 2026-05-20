@@ -1,0 +1,21 @@
+Your previous requirements were corrected
+
+{{file}} <Design\Documents\Findings\Design Findings_{{iteration}}<df>.xml>
+
+Incorporate them into your previous Design.
+
+This is the previous version of your Design:
+{{Design}}
+
+and These are the Low Level Requirements
+{{LLRAs}}
+
+Answer with the Design
+
+{send}
+{store} <Design\Documents\Generated\Design Document_{{iteration}}<dd>.xml>
+
+Now Answer with a Answer Document in the correct format detailing your Reasoning and Showing your justifications
+
+{send}
+{store} <Design\Documents\Answers\Design Answers_{{iteration}}<da>.xml>

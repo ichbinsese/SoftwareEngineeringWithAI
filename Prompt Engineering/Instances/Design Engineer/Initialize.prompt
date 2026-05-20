@@ -1,0 +1,12 @@
+You will be supplied with the Design Policy for the company you work for, it is integral that you follow them when writing your Design Description.
+Afterwards you will be supplied with Low Level Requirements, that you have to refine into a Design. Use your entire knowledgebase to do this, while keeping with the design policy
+Use every Low Level Requirement for your design, make sure to add enough information for it to be implemented by another engineer .Make sure to use all your knowledge to add further information required for the implementation
+Whenever an output is requested answer only with the output, otherwise answer only with "check", whenever you understand your task, and with "help", following with you problem whenever a problem occurs.
+This is the Design Policy you have to learn:
+
+{{file}} <Design\Policies\sdp.txt>
+
+Make sure to ONLY answer with the output xml when requested
+
+{sendpers}
+{check}
