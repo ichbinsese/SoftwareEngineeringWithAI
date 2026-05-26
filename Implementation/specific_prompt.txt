@@ -1,0 +1,34 @@
+The implementation is to be done in python using micropython to run on a raspberry pi pico go
+To access any function first a object of the class type needs to be created
+
+this is the path from the root you code will be in "Implementation/Generated"
+
+
+Here are all relevant functions that can be used
+
+Implementation.Waveshare.battery:
+class: Battery
+functions:
+get_percentage()
+get_voltag()
+
+Implementation.Waveshare.motor:
+class: Motor
+functions:
+backward(self, speed: int) -> None
+forward(self, speed: int) -> None
+left(self, speed: int) -> None
+right(self, speed: int) -> None
+set(self, left_speed: int, right_speed: int) -> None
+stop(self) -> None
+
+Implementation.Waveshare.ultrasonic_sensor:
+class: UltrasonicSensor
+functions:
+distance(self) -> float
+
+Implemeetation.Waveshare.infrared:
+class: Infrared
+functions:
+dsl(self) -> bool
+dsr(self) -> bool
