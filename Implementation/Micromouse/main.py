@@ -3,107 +3,114 @@
 """
 Main entry point.
 
-High-level wiring of components per CMP--10 (Scheduler and Initialization).
+Wires together core components according to Design:
+- CMP--1 ConfigurationManager
+- CMP--3 MapManager
+- CMP--4 GridPathPlanner
+- CMP--7 SensorProcessingModule
+- CMP--5 MotionControllerAndWallAvoidance
+- CMP--9 StallDetectionAndRecovery
+- CMP--6 RunController
+- CMP--10 SecondRunResultEvaluatorAndReporter
+- CMP--13 ExternalStatusLogger
+
+State machines:
+- FSM--1 ExplorationStateMachineController is largely stubbed (not fully implemented),
+  but hooks for exploration start and termination events are present via RunController.
+- FSM--2, FSM--4 behaviors are partially realized.
+
+This main loop:
+- Initializes all modules.
+- Periodically steps SensorProcessingModule.
+- For demonstration, triggers a synthetic ExplorationStartEvent and
+  ExplorationTerminatedEvent so RunController+SecondRunResultEvaluator execute.
 """
 
-from core.scheduler import Scheduler  # CMP--10
-from core.sensor_layer import SensorAbstractionLayer  # CMP--7
-from core.gridmap import GridMap  # CMP--3
-from core.mapping import MappingModule  # CMP--6
-from core.pose import PoseEstimator  # CMP--9
-from core.frontier import FrontierGenerator  # CMP--2
-from core.planner import PathPlanner  # CMP--4
-from core.goal_region import GoalRegionSelector  # CMP--5
-from core.motion_control import MotionController  # CMP--8
-from core.mission_control import MissionController  # CMP--1
-from core.exploration_status import ExplorationStatus  # CMP--11
-from core.events import EventQueue  # DAT--7
-from core.config import Config
-from Waveshare.battery import Battery
-from Waveshare.motor import Motor
-from Waveshare.ultrasonic_sensor import UltrasonicSensor
-from Waveshare.infrared import Infrared
+from __future__ import annotations
+import time
+
+from common.events import EventBus
+from common.utils import log
+from config.configuration_manager import ConfigurationManager
+from mapping.map_manager import MapManager
+from planning.grid_path_planner import GridPathPlanner
+from sensors.sensor_processing import SensorProcessingModule
+from motion.motion_controller import MotionControllerAndWallAvoidance
+from motion.stall_detection import StallDetectionAndRecovery
+from run.run_controller import RunController
+from run.second_run_evaluator import SecondRunResultEvaluatorAndReporter
+from logging.external_status_logger import ExternalStatusLogger
+from common.types import CellCoord
 
 
-def create_system():
-    """Initialize all modules and wire dependencies. Traces: CMP--10, CMP--1..CMP--11."""
-    config = Config()
+def main() -> None:
+    # Global event bus
+    bus = EventBus()
 
-    # Hardware objects
-    battery = Battery()
-    motor_hw = Motor()
-    ultrasonic = UltrasonicSensor()
-    infrared = Infrared()
+    # CMP--1
+    cfg = ConfigurationManager()
 
-    # Shared infra
-    event_queue = EventQueue(size=16)  # DAT--7
-    grid_map = GridMap(config=config)  # CMP--3
-    pose = PoseEstimator(config=config)  # CMP--9
-    sal = SensorAbstractionLayer(
-        ultrasonic=ultrasonic,
-        infrared=infrared,
-        config=config,
-    )  # CMP--7
-    mapping = MappingModule(
-        grid_map=grid_map,
-        config=config,
-    )  # CMP--6
-    planner = PathPlanner(
-        grid_map=grid_map,
-        config=config,
-    )  # CMP--4
-    frontier = FrontierGenerator(
-        grid_map=grid_map,
-        planner=planner,
-        config=config,
-    )  # CMP--2
-    goal_region = GoalRegionSelector(
-        grid_map=grid_map,
-        planner=planner,
-        config=config,
-    )  # CMP--5
-    motion = MotionController(
-        motor=motor_hw,
-        sal=sal,
-        config=config,
-    )  # CMP--8
-    exploration_status = ExplorationStatus(
-        grid_map=grid_map,
-        config=config,
-        event_queue=event_queue,
-    )  # CMP--11
-    mission = MissionController(
-        grid_map=grid_map,
-        frontier=frontier,
-        planner=planner,
-        goal_region=goal_region,
-        motion=motion,
-        exploration_status=exploration_status,
-        sal=sal,
-        pose=pose,
-        event_queue=event_queue,
-        config=config,
-    )  # CMP--1
+    if cfg.flags["CONFIG_FATAL"]:
+        log("Fatal configuration; aborting execution")
+        return
 
-    scheduler = Scheduler(
-        config=config,
-        sal=sal,
-        grid_map=grid_map,
-        mapping=mapping,
-        mission=mission,
-        planner=planner,
-        motion=motion,
-        pose=pose,
-        exploration_status=exploration_status,
-    )  # CMP--10
+    # CMP--3
+    map_geom_cfg = cfg.get_map_geometry_config()
+    map_manager = MapManager(map_geom_cfg)
 
-    return scheduler, battery
+    # CMP--4
+    planner_cfg = cfg.get_planner_config()
+    planner = GridPathPlanner(planner_cfg)
 
+    # CMP--7
+    sensor_cfg = cfg.get_sensor_filter_debounce_config()
+    sensor_proc = SensorProcessingModule(bus, sensor_cfg)
 
-def main():
-    scheduler, battery = create_system()
-    # Simple blocking loop. In MicroPython this should be the only top-level loop.
-    scheduler.run_forever()
+    # CMP--5
+    motion_cfg = cfg.get_motion_safety_and_speed_config()
+    robot_geom_cfg = cfg.get_robot_geometry_config()
+    motion = MotionControllerAndWallAvoidance(
+        bus,
+        motion_cfg,
+        robot_geom_cfg,
+        cell_size_cm=map_geom_cfg["cell_size_cm"],
+    )
+
+    # CMP--9
+    stall_cfg = cfg.get_stall_detection_config()
+    stall = StallDetectionAndRecovery(bus, stall_cfg)
+
+    # CMP--6
+    second_run_cfg = cfg.get_second_run_speed_config()
+    run_ctrl = RunController(bus, planner, map_manager, motion, second_run_cfg)
+
+    # CMP--10
+    evaluator = SecondRunResultEvaluatorAndReporter(bus, map_manager)
+
+    # CMP--13
+    logger = ExternalStatusLogger(bus)
+
+    log("System initialized; starting demo loop")
+
+    # Demo: simulate exploration start and termination after short delay
+    bus.publish("ExplorationStartEvent", {"reason": "MANUAL_TRIGGER"})
+    start_time = time.ticks_ms()
+    # Main loop: sample sensors at ~50 Hz, then after some time stop exploration.
+    while True:
+        sensor_proc.step()
+        time.sleep(0.02)  # 50 Hz
+
+        if time.ticks_diff(time.ticks_ms(), start_time) > 2000:
+            # Simulate mapping completion event once
+            bus.publish(
+                "ExplorationTerminatedEvent",
+                {"reason": "MAPPING_COMPLETE"},
+            )
+            # Allow second run handling to execute, then break.
+            time.sleep(1.0)
+            break
+
+    log("Main demo completed")
 
 
 if __name__ == "__main__":

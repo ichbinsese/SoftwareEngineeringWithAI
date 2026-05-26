@@ -32,6 +32,12 @@ class _MarkerFunctions:
         return plain_text
 
     @staticmethod
+    def LastDesign(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file( f"Design/Documents/Generated/Design Document_{IterationManager.get_iteration("dd") - 1}.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
+        return plain_text
+
+    @staticmethod
     def Design(plain_text:str, position:int):
         requirements = ProjectUtils.read_file( f"Design/Documents/Generated/Design Document_{IterationManager.get_iteration("dd")}.xml")
         plain_text = plain_text[:position] + requirements + plain_text[position:]
@@ -137,6 +143,7 @@ class Prompt(object):
         "{{HLRs}}" : _MarkerFunctions.HLRs,
         "{{LLRs}}" : _MarkerFunctions.LLRs,
         "{{LLRAs}}" : _MarkerFunctions.LLRAs,
+       " {{LastDesign}}" : _MarkerFunctions.LastDesign,
         "{{Design}}" : _MarkerFunctions.Design,
         "{{file}}" : _MarkerFunctions.file,
     }

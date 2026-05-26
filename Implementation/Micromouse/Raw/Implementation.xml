@@ -1,1333 +1,1985 @@
 <Implementation>
     <Structure>
         <File>main.py</File>
-        <Directory name="core">
-            <File>scheduler.py</File>
-            <File>events.py</File>
-            <File>gridmap.py</File>
-            <File>exploration_status.py</File>
-            <File>frontier.py</File>
-            <File>planner.py</File>
-            <File>goal_region.py</File>
-            <File>sensor_layer.py</File>
-            <File>mapping.py</File>
-            <File>motion_control.py</File>
-            <File>pose.py</File>
-            <File>mission_control.py</File>
-            <File>config.py</File>
+        <Directory name="config">
+            <File>configuration_manager.py</File>
+        </Directory>
+        <Directory name="mapping">
+            <File>map_manager.py</File>
+        </Directory>
+        <Directory name="planning">
+            <File>grid_path_planner.py</File>
+        </Directory>
+        <Directory name="motion">
+            <File>motion_controller.py</File>
+            <File>motor_abstraction.py</File>
+            <File>stall_detection.py</File>
+        </Directory>
+        <Directory name="sensors">
+            <File>sensor_processing.py</File>
+            <File>sensor_wrappers.py</File>
+        </Directory>
+        <Directory name="hardware">
+            <File>motor_interface.py</File>
+        </Directory>
+        <Directory name="run">
+            <File>run_controller.py</File>
+            <File>second_run_evaluator.py</File>
+        </Directory>
+        <Directory name="logging">
+            <File>external_status_logger.py</File>
+        </Directory>
+        <Directory name="common">
             <File>types.py</File>
+            <File>utils.py</File>
+            <File>events.py</File>
         </Directory>
     </Structure>
     <Code>
+        <CodeFile name="common/types.py">
+<![CDATA[
+"""
+Common types and data structures.
+
+Traces:
+- DAT--1: GridMap and Cell definitions
+- DAT--4: Direction, CellCoord, GridPath
+"""
+
+from __future__ import annotations
+from typing import List, Optional, Tuple
+from micropython import const
+
+
+# === Directions and headings (DAT--4, DAT--1) ===
+
+DIR_NORTH = const(0)
+DIR_EAST = const(1)
+DIR_SOUTH = const(2)
+DIR_WEST = const(3)
+
+DIRECTION_VECTORS = {
+    DIR_NORTH: (0, 1),
+    DIR_EAST: (1, 0),
+    DIR_SOUTH: (0, -1),
+    DIR_WEST: (-1, 0),
+}
+
+DIRECTION_NAMES = {
+    DIR_NORTH: "NORTH",
+    DIR_EAST: "EAST",
+    DIR_SOUTH: "SOUTH",
+    DIR_WEST: "WEST",
+}
+
+
+def rotate_left(direction: int) -> int:
+    """Rotate heading 90° left.
+
+    Trace: used by CMP--3, CMP--5, CMP--9.
+    """
+    return (direction - 1) & 0x3
+
+
+def rotate_right(direction: int) -> int:
+    """Rotate heading 90° right."""
+    return (direction + 1) & 0x3
+
+
+class OccupancyState:
+    """Occupancy enumeration (DAT--1)."""
+
+    UNKNOWN = 0
+    FREE = 1
+    NON_TRAVERSABLE = 2
+
+
+class CellWalls:
+    """Walls around a cell (DAT--1)."""
+
+    __slots__ = ("north", "east", "south", "west")
+
+    def __init__(self) -> None:
+        self.north = False
+        self.east = False
+        self.south = False
+        self.west = False
+
+
+class Cell:
+    """Single grid cell (DAT--1)."""
+
+    __slots__ = (
+        "occupancy",
+        "walls",
+        "is_start_region",
+        "is_goal_region",
+        "unknown_neighbor_count",
+    )
+
+    def __init__(self) -> None:
+        self.occupancy = OccupancyState.UNKNOWN
+        self.walls = CellWalls()
+        self.is_start_region = False
+        self.is_goal_region = False
+        self.unknown_neighbor_count = 0
+
+
+GRID_WIDTH = const(4)
+GRID_HEIGHT = const(8)
+
+
+class GridMap:
+    """4x8 map plus current pose (DAT--1)."""
+
+    __slots__ = ("cells", "current_x", "current_y", "current_heading")
+
+    def __init__(self) -> None:
+        self.cells: List[List[Cell]] = [
+            [Cell() for _ in range(GRID_HEIGHT)] for _ in range(GRID_WIDTH)
+        ]
+        self.current_x = 0
+        self.current_y = 0
+        self.current_heading = DIR_NORTH
+
+
+class CellCoord:
+    """Coordinate in grid (DAT--4)."""
+
+    __slots__ = ("x", "y")
+
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x
+        self.y = y
+
+    def __iter__(self):
+        yield self.x
+        yield self.y
+
+    def __repr__(self) -> str:
+        return "CellCoord(%d,%d)" % (self.x, self.y)
+
+
+class GridPath:
+    """Path between cells as sequence of moves (DAT--4)."""
+
+    __slots__ = ("cells", "moves")
+
+    def __init__(self) -> None:
+        self.cells: List[CellCoord] = []
+        self.moves: List[int] = []  # direction step from cells[i] -> cells[i+1]
+
+    @property
+    def length(self) -> int:
+        return len(self.moves)
+
+    def is_empty(self) -> bool:
+        return self.length == 0
+]]>
+        </CodeFile>
+
+        <CodeFile name="common/utils.py">
+<![CDATA[
+"""
+Utility helpers.
+
+Traces:
+- CMP--1: logging of config issues
+- CMP--13: log formatting
+"""
+
+from __future__ import annotations
+import sys
+import time
+from typing import Any
+
+
+def monotonic_time_s() -> float:
+    """Return monotonic time in seconds.
+
+    Used by:
+    - CMP--2 ExplorationStateMachineController timing (mapping_time_budget)
+    - CMP--5 MotionController stall timers
+    - CMP--9 StallDetectionAndRecovery timeouts
+    """
+    # On MicroPython, time.ticks_ms() is monotonic; convert to seconds.
+    return time.ticks_ms() / 1000.0
+
+
+def log(msg: str) -> None:
+    """Simple console logger (CMP--13 ExternalStatusLogger backing)."""
+    ts = "%.3f" % monotonic_time_s()
+    sys.stdout.write("[%s] %s\n" % (ts, msg))
+    sys.stdout.flush()
+
+
+def clamp(val: float, lo: float, hi: float) -> float:
+    """Clamp val into [lo, hi]. Used by CMP--1, CMP--12."""
+    if val < lo:
+        return lo
+    if val > hi:
+        return hi
+    return val
+]]>
+        </CodeFile>
+
+        <CodeFile name="common/events.py">
+<![CDATA[
+"""
+Very small synchronous event bus.
+
+This is a lightweight mechanism to connect components as specified
+by ConnectedComponents without real concurrency.
+
+Traces:
+- Used across CMP--2, CMP--3, CMP--4, CMP--5, CMP--6, CMP--7, CMP--9, CMP--10, CMP--13.
+"""
+
+from __future__ import annotations
+from typing import Callable, Dict, List, Any
+
+
+class EventBus:
+    """Simple pub/sub bus."""
+
+    def __init__(self) -> None:
+        self._subscribers: Dict[str, List[Callable[[Any], None]]] = {}
+
+    def subscribe(self, event_name: str, cb: Callable[[Any], None]) -> None:
+        if event_name not in self._subscribers:
+            self._subscribers[event_name] = []
+        self._subscribers[event_name].append(cb)
+
+    def publish(self, event_name: str, payload: Any = None) -> None:
+        subs = self._subscribers.get(event_name)
+        if not subs:
+            return
+        for cb in subs:
+            cb(payload)
+]]>
+        </CodeFile>
+
+        <CodeFile name="config/configuration_manager.py">
+<![CDATA[
+"""
+CMP--1 ConfigurationManager implementation.
+
+Responsibilities (CMP--1, DAT--5):
+- Load configuration from file if present.
+- Validate values against safety constraints, clamp or default as needed.
+- Provide read-only accessors for other components.
+"""
+
+from __future__ import annotations
+from typing import Dict, Any
+import ujson as json  # MicroPython JSON module
+import os
+
+from common.utils import log, clamp
+
+
+class ConfigurationManager:
+    """
+    Trace IDs:
+    - Component: CMP--1
+    - Data: DAT--5 (configuration parameters and validation)
+    """
+
+    CONFIG_PATH = "config.json"
+
+    def __init__(self) -> None:
+        self._config: Dict[str, Any] = {}
+        self.flags = {
+            "CONFIG_DEFAULT_USED": False,
+            "CONFIG_PARAM_CLAMPED": False,
+            "CONFIG_FATAL": False,
+        }
+        self._load_and_validate()
+
+    # ---------- loading / validation (CMP--1, DAT--5) ----------
+
+    def _load_and_validate(self) -> None:
+        raw: Dict[str, Any] = {}
+        if self.CONFIG_PATH in os.listdir():
+            try:
+                with open(self.CONFIG_PATH, "r") as f:
+                    raw = json.load(f)
+            except Exception as exc:
+                log("CMP--1: Failed to parse config.json: %r" % exc)
+                self.flags["CONFIG_DEFAULT_USED"] = True
+        else:
+            log("CMP--1: config.json missing, using defaults")
+            self.flags["CONFIG_DEFAULT_USED"] = True
+
+        self._config["timing"] = self._validate_timing(raw.get("timing", {}))
+        self._config["speed"] = self._validate_speed(raw.get("speed", {}))
+        self._config["sensor_filter"] = self._validate_sensor_filter(
+            raw.get("sensor_filter", {})
+        )
+        self._config["safety"] = self._validate_safety(
+            raw.get("safety", {}), self._config["speed"]
+        )
+        self._config["env"] = self._validate_env(raw.get("env", {}))
+
+        # Fatal configuration errors: env geometry must be valid.
+        env = self._config["env"]
+        if env["cell_size_cm"] <= 0 or env["wall_thickness_cm"] <= 0:
+            log("CMP--1: Fatal geometry config; preventing exploration")
+            self.flags["CONFIG_FATAL"] = True
+
+    def _validate_timing(self, timing: Dict[str, Any]) -> Dict[str, Any]:
+        # Defaults (DAT--5 safety defaults)
+        mapping_time_budget_s = float(timing.get("mapping_time_budget_s", 300.0))
+        if not (0.0 < mapping_time_budget_s <= 300.0):
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            mapping_time_budget_s = 300.0
+
+        stall_timeout_per_cell_s = float(timing.get("stall_timeout_per_cell_s", 3.0))
+        if stall_timeout_per_cell_s <= 0:
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            stall_timeout_per_cell_s = 3.0
+
+        stall_max_retries = int(timing.get("stall_max_retries", 3))
+        if stall_max_retries < 0:
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            stall_max_retries = 3
+
+        return {
+            "mapping_time_budget_s": mapping_time_budget_s,
+            "stall_timeout_per_cell_s": stall_timeout_per_cell_s,
+            "stall_max_retries": stall_max_retries,
+        }
+
+    def _validate_speed(self, speed: Dict[str, Any]) -> Dict[str, Any]:
+        # Limit translational speeds to < 200 cm/s (CMP--1 invariant)
+        def _v(name: str, default: float) -> float:
+            v = float(speed.get(name, default))
+            if v <= 0 or v > 200.0:
+                self.flags["CONFIG_PARAM_CLAMPED"] = True
+                v = default
+            return v
+
+        exploration_trans = _v("exploration_trans_speed_cm_s", 40.0)
+        exploration_rot = _v("exploration_rot_speed_deg_s", 90.0)
+        second_run_trans = _v("second_run_trans_speed_cm_s", 80.0)
+        second_run_rot = _v("second_run_rot_speed_deg_s", 180.0)
+
+        max_motor_speed_exploration = int(speed.get("max_motor_speed_exploration", 70))
+        max_motor_speed_second_run = int(speed.get("max_motor_speed_second_run", 85))
+        max_motor_speed_exploration = int(clamp(max_motor_speed_exploration, 0, 100))
+        max_motor_speed_second_run = int(clamp(max_motor_speed_second_run, 0, 100))
+
+        return {
+            "exploration_trans_speed_cm_s": exploration_trans,
+            "exploration_rot_speed_deg_s": exploration_rot,
+            "second_run_trans_speed_cm_s": second_run_trans,
+            "second_run_rot_speed_deg_s": second_run_rot,
+            "max_motor_speed_exploration": max_motor_speed_exploration,
+            "max_motor_speed_second_run": max_motor_speed_second_run,
+        }
+
+    def _validate_sensor_filter(self, sf: Dict[str, Any]) -> Dict[str, Any]:
+        def _int_range(name: str, default: int) -> int:
+            v = int(sf.get(name, default))
+            if v < 1 or v > 10:
+                self.flags["CONFIG_PARAM_CLAMPED"] = True
+                v = default
+            return v
+
+        ultrasonic_filter_window = _int_range("ultrasonic_filter_window", 5)
+        ir_confirm_count = _int_range("ir_confirm_count", 3)
+        ir_clear_count = _int_range("ir_clear_count", 3)
+
+        return {
+            "ultrasonic_filter_window": ultrasonic_filter_window,
+            "ir_confirm_count": ir_confirm_count,
+            "ir_clear_count": ir_clear_count,
+        }
+
+    def _validate_safety(self, safety: Dict[str, Any], speed_cfg: Dict[str, Any]) -> Dict[str, Any]:
+        # Simplified braking table: constant stopping distance per speed regime.
+        safety_margin_cm = float(safety.get("safety_margin_cm", 2.0))
+        if safety_margin_cm <= 0:
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            safety_margin_cm = 2.0
+
+        ultrasonic_min_valid_cm = float(safety.get("ultrasonic_min_valid_cm", 2.0))
+        ultrasonic_max_valid_cm = float(safety.get("ultrasonic_max_valid_cm", 100.0))
+        if ultrasonic_min_valid_cm <= 0 or ultrasonic_min_valid_cm >= ultrasonic_max_valid_cm:
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            ultrasonic_min_valid_cm = 2.0
+            ultrasonic_max_valid_cm = 100.0
+
+        # Stopping distance model (DAT--5/6): ensure d_min <= cell_size/2, adjusted later once env known.
+        # Here we only ensure basic sanity; detailed enforcement is done in motion_controller using env config.
+        return {
+            "safety_margin_cm": safety_margin_cm,
+            "ultrasonic_min_valid_cm": ultrasonic_min_valid_cm,
+            "ultrasonic_max_valid_cm": ultrasonic_max_valid_cm,
+        }
+
+    def _validate_env(self, env: Dict[str, Any]) -> Dict[str, Any]:
+        cell_size_cm = float(env.get("cell_size_cm", 17.2))
+        wall_thickness_cm = float(env.get("wall_thickness_cm", 1.6))
+        if cell_size_cm <= 0 or wall_thickness_cm <= 0:
+            self.flags["CONFIG_PARAM_CLAMPED"] = True
+            cell_size_cm = 17.2
+            wall_thickness_cm = 1.6
+        return {
+            "cell_size_cm": cell_size_cm,
+            "wall_thickness_cm": wall_thickness_cm,
+        }
+
+    # ---------- accessors mapping to ConnectedComponents ----------
+
+    # CMP--2 ExplorationTimingAndSpeedConfig
+    def get_exploration_timing_and_speed(self) -> Dict[str, Any]:
+        return {
+            "mapping_time_budget_s": self._config["timing"]["mapping_time_budget_s"],
+            "exploration_trans_speed_cm_s": self._config["speed"][
+                "exploration_trans_speed_cm_s"
+            ],
+            "exploration_rot_speed_deg_s": self._config["speed"][
+                "exploration_rot_speed_deg_s"
+            ],
+            "stall_timeout_per_cell_s": self._config["timing"][
+                "stall_timeout_per_cell_s"
+            ],
+            "stall_max_retries": self._config["timing"]["stall_max_retries"],
+        }
+
+    # CMP--3 MapGeometryConfig
+    def get_map_geometry_config(self) -> Dict[str, Any]:
+        env = self._config["env"]
+        return {
+            "cell_size_cm": env["cell_size_cm"],
+            "wall_thickness_cm": env["wall_thickness_cm"],
+            "max_walls_per_cell": 3,
+        }
+
+    # CMP--4 PlannerConfig
+    def get_planner_config(self) -> Dict[str, Any]:
+        return {
+            "use_diagonal_moves": False,
+            "cost_per_step": 1,
+        }
+
+    # CMP--5 MotionSafetyAndSpeedConfig (DAT--6)
+    def get_motion_safety_and_speed_config(self) -> Dict[str, Any]:
+        speed = self._config["speed"]
+        safety = self._config["safety"]
+        env = self._config["env"]
+        return {
+            "exploration_trans_speed_cm_s": speed["exploration_trans_speed_cm_s"],
+            "exploration_rot_speed_deg_s": speed["exploration_rot_speed_deg_s"],
+            "second_run_trans_speed_cm_s": speed["second_run_trans_speed_cm_s"],
+            "second_run_rot_speed_deg_s": speed["second_run_rot_speed_deg_s"],
+            "max_motor_speed_exploration": speed["max_motor_speed_exploration"],
+            "max_motor_speed_second_run": speed["max_motor_speed_second_run"],
+            "safety_margin_cm": safety["safety_margin_cm"],
+            "ultrasonic_min_valid_cm": safety["ultrasonic_min_valid_cm"],
+            "ultrasonic_max_valid_cm": safety["ultrasonic_max_valid_cm"],
+            "cell_size_cm": env["cell_size_cm"],
+        }
+
+    # CMP--6 SecondRunSpeedConfig
+    def get_second_run_speed_config(self) -> Dict[str, Any]:
+        speed = self._config["speed"]
+        return {
+            "second_run_trans_speed_cm_s": speed["second_run_trans_speed_cm_s"],
+            "second_run_rot_speed_deg_s": speed["second_run_rot_speed_deg_s"],
+            "max_second_run_speed_cm_s": speed["second_run_trans_speed_cm_s"],
+        }
+
+    # CMP--7 SensorFilterDebounceConfig
+    def get_sensor_filter_debounce_config(self) -> Dict[str, Any]:
+        sf = self._config["sensor_filter"]
+        safety = self._config["safety"]
+        return {
+            "ultrasonic_filter_window_size": sf["ultrasonic_filter_window"],
+            "ir_confirm_count": sf["ir_confirm_count"],
+            "ir_clear_count": sf["ir_clear_count"],
+            "min_valid_cm": safety["ultrasonic_min_valid_cm"],
+            "max_valid_cm": safety["ultrasonic_max_valid_cm"],
+        }
+
+    # CMP--8 SpeedLimitConfig
+    def get_speed_limit_config(self) -> Dict[str, Any]:
+        speed = self._config["speed"]
+        return {
+            "max_motor_speed_exploration": speed["max_motor_speed_exploration"],
+            "max_motor_speed_second_run": speed["max_motor_speed_second_run"],
+        }
+
+    # CMP--9 StallDetectionConfigParams
+    def get_stall_detection_config(self) -> Dict[str, Any]:
+        t = self._config["timing"]
+        return {
+            "move_timeout_per_cell_s": t["stall_timeout_per_cell_s"],
+            "max_obstacle_retries": t["stall_max_retries"],
+            "stall_replan_delay_s": 0.5,  # simple constant
+        }
+
+    # Robot geometry (CMP--9, CMP--8, DAT--6)
+    def get_robot_geometry_config(self) -> Dict[str, Any]:
+        return {
+            "robot_radius_cm": 5.5,
+            "uncertainty_margin_cm": 4.0,
+        }
+]]>
+        </CodeFile>
+
+        <CodeFile name="mapping/map_manager.py">
+<![CDATA[
+"""
+CMP--3 MapManager implementation.
+
+Traces:
+- Component CMP--3
+- Data DAT--1, DAT--2, DAT--3
+"""
+
+from __future__ import annotations
+from typing import List, Tuple, Dict, Any, Optional
+
+from common.types import (
+    GridMap,
+    Cell,
+    CellWalls,
+    OccupancyState,
+    GRID_WIDTH,
+    GRID_HEIGHT,
+    DIR_NORTH,
+    DIR_EAST,
+    DIR_SOUTH,
+    DIR_WEST,
+    DIRECTION_VECTORS,
+    CellCoord,
+)
+from common.utils import log
+
+
+class MapManager:
+    """4x8 map with walls and frontier logic."""
+
+    def __init__(self, geometry_cfg: Dict[str, Any]) -> None:
+        """
+        geometry_cfg from ConfigurationManager.get_map_geometry_config() (CMP--1->CMP--3).
+        """
+        self.map = GridMap()
+        self.cell_size_cm = geometry_cfg["cell_size_cm"]
+        self.wall_thickness_cm = geometry_cfg["wall_thickness_cm"]
+        self.max_walls_per_cell = geometry_cfg["max_walls_per_cell"]
+        self._init_map()
+
+    # ---------- initialization (DAT--1) ----------
+
+    def _init_map(self) -> None:
+        for x in range(GRID_WIDTH):
+            for y in range(GRID_HEIGHT):
+                c = self.map.cells[x][y]
+                c.occupancy = OccupancyState.UNKNOWN
+                c.walls = CellWalls()
+                c.is_start_region = False
+                c.is_goal_region = False
+                c.unknown_neighbor_count = 0
+
+        # Start cell (0,0)
+        self.map.current_x = 0
+        self.map.current_y = 0
+        self.map.current_heading = DIR_NORTH
+        self._mark_start_region_cell(0, 0)
+
+        # Goal region cells (2,6),(2,7),(3,6),(3,7)
+        self._mark_goal_region_cells()
+
+        self._recompute_all_unknown_neighbors()
+
+    # ---------- region marking (CMP--3 ConnectedComponents) ----------
+
+    def _mark_goal_region_cells(self) -> None:
+        coords = [(2, 6), (2, 7), (3, 6), (3, 7)]
+        for (x, y) in coords:
+            if 0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT:
+                self.map.cells[x][y].is_goal_region = True
+
+    def _mark_start_region_cell(self, x: int, y: int) -> None:
+        self.map.cells[x][y].is_start_region = True
+        self.map.cells[x][y].occupancy = OccupancyState.FREE
+
+    # API for CMP--2 InitializeStartCellAndHeading
+    def initialize_start_cell_and_heading(self, heading: int) -> None:
+        self.map.current_x = 0
+        self.map.current_y = 0
+        self.map.current_heading = heading
+        self._mark_start_region_cell(0, 0)
+        self._recompute_all_unknown_neighbors()
+
+    # API for CMP--2 SetCurrentPose
+    def set_current_pose(self, x: int, y: int, heading: int) -> None:
+        if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
+            log("CMP--3: set_current_pose out of bounds (%d,%d)" % (x, y))
+            return
+        self.map.current_x = x
+        self.map.current_y = y
+        self.map.current_heading = heading
+
+    # ---------- wall setting logic (DAT--1, DAT--2) ----------
+
+    def set_wall_at_current_heading_front(self) -> None:
+        """Set wall in front of current cell along current heading."""
+        self._set_wall(self.map.current_x, self.map.current_y, self.map.current_heading)
+
+    def set_wall_side_left(self) -> None:
+        """Set wall at left side of current heading."""
+        h = self.map.current_heading
+        if h == DIR_NORTH:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_WEST)
+        elif h == DIR_EAST:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_NORTH)
+        elif h == DIR_SOUTH:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_EAST)
+        else:  # WEST
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_SOUTH)
+
+    def set_wall_side_right(self) -> None:
+        """Set wall at right side of current heading."""
+        h = self.map.current_heading
+        if h == DIR_NORTH:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_EAST)
+        elif h == DIR_EAST:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_SOUTH)
+        elif h == DIR_SOUTH:
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_WEST)
+        else:  # WEST
+            self._set_wall(self.map.current_x, self.map.current_y, DIR_NORTH)
+
+    def _set_wall(self, x: int, y: int, direction: int) -> None:
+        """Apply wall consistency rules (DAT--1)."""
+        if not (0 <= x < GRID_WIDTH and 0 <= y < GRID_HEIGHT):
+            log("CMP--3: attempt to set wall out of bounds (%d,%d)" % (x, y))
+            return
+
+        cell = self.map.cells[x][y]
+
+        # Check max walls per cell
+        wall_count = (
+            cell.walls.north
+            + cell.walls.east
+            + cell.walls.south
+            + cell.walls.west
+        )
+        if wall_count >= self.max_walls_per_cell:
+            # Per DAT--2, ignore sensor evidence suggesting a 4th wall
+            log("CMP--3: ignoring 4th wall evidence at (%d,%d)" % (x, y))
+            return
+
+        dx, dy = DIRECTION_VECTORS[direction]
+        nx = x + dx
+        ny = y + dy
+
+        # Determine primary and neighbor wall attributes
+        if direction == DIR_NORTH:
+            cell.walls.north = True
+            if ny < GRID_HEIGHT:
+                ncell = self.map.cells[nx][ny]
+                ncell.walls.south = True
+        elif direction == DIR_SOUTH:
+            cell.walls.south = True
+            if ny >= 0:
+                ncell = self.map.cells[nx][ny]
+                ncell.walls.north = True
+        elif direction == DIR_EAST:
+            cell.walls.east = True
+            if nx < GRID_WIDTH:
+                ncell = self.map.cells[nx][ny]
+                ncell.walls.west = True
+        else:  # WEST
+            cell.walls.west = True
+            if nx >= 0:
+                ncell = self.map.cells[nx][ny]
+                ncell.walls.east = True
+
+        self._recompute_unknown_neighbors_around(x, y)
+
+    # ---------- cell classification and update from scan (DAT--2) ----------
+
+    def update_from_scan(
+        self,
+        current_x: int,
+        current_y: int,
+        current_heading: int,
+        front_distance_cm_filtered: Optional[float],
+        ir_left_obstacle: bool,
+        ir_right_obstacle: bool,
+        safety_margin_cm: float,
+        robot_radius_cm: float,
+        uncertainty_margin_cm: float,
+    ) -> None:
+        """Apply CellScanSensorData to walls and cell occupancy.
+
+        Parameters trace back to:
+        - CMP--2/3 MapUpdateFromScan
+        - DAT--2 wall detection logic
+        """
+        if not (0 <= current_x < GRID_WIDTH and 0 <= current_y < GRID_HEIGHT):
+            log("CMP--3: update_from_scan out of bounds")
+            return
+
+        self.map.current_x = current_x
+        self.map.current_y = current_y
+        self.map.current_heading = current_heading
+
+        cell = self.map.cells[current_x][current_y]
+
+        # Wall detection from ultrasonic (front) (DAT--2)
+        if front_distance_cm_filtered is not None:
+            d_expected = (
+                self.cell_size_cm / 2.0
+                - robot_radius_cm
+                - self.wall_thickness_cm / 2.0
+            )
+            t_front = d_expected + safety_margin_cm - uncertainty_margin_cm
+            if front_distance_cm_filtered <= t_front:
+                self.set_wall_at_current_heading_front()
+
+        # IR-based side walls (DAT--2)
+        if ir_left_obstacle:
+            self.set_wall_side_left()
+        if ir_right_obstacle:
+            self.set_wall_side_right()
+
+        # Cell classification (simplified rule from DAT--2)
+        cell.occupancy = OccupancyState.FREE
+
+        self._recompute_unknown_neighbors_around(current_x, current_y)
+
+    # ---------- unknown neighbor counting & frontier (DAT--1, DAT--3) ----------
+
+    def _neighbors(self, x: int, y: int) -> List[Tuple[int, int, int]]:
+        res = []
+        for direction, (dx, dy) in DIRECTION_VECTORS.items():
+            nx = x + dx
+            ny = y + dy
+            if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                res.append((nx, ny, direction))
+        return res
+
+    def _recompute_unknown_neighbors_around(self, x: int, y: int) -> None:
+        # Recompute for cell (x,y) and all neighbors (DAT--1)
+        for (cx, cy) in [(x, y)] + [(nx, ny) for (nx, ny, _) in self._neighbors(x, y)]:
+            self._recompute_unknown_neighbors_for_cell(cx, cy)
+
+    def _recompute_unknown_neighbors_for_cell(self, x: int, y: int) -> None:
+        cell = self.map.cells[x][y]
+        count = 0
+        for nx, ny, direction in self._neighbors(x, y):
+            ncell = self.map.cells[nx][ny]
+            if ncell.occupancy == OccupancyState.UNKNOWN and self._edge_traversable(
+                x, y, nx, ny, direction
+            ):
+                count += 1
+        cell.unknown_neighbor_count = count
+
+    def _recompute_all_unknown_neighbors(self) -> None:
+        for x in range(GRID_WIDTH):
+            for y in range(GRID_HEIGHT):
+                self._recompute_unknown_neighbors_for_cell(x, y)
+
+    def _edge_traversable(
+        self, x: int, y: int, nx: int, ny: int, direction: int
+    ) -> bool:
+        cell = self.map.cells[x][y]
+        ncell = self.map.cells[nx][ny]
+        # Check walls consistent with DAT--2, DAT--3
+        if direction == DIR_NORTH:
+            if cell.walls.north or ncell.walls.south:
+                return False
+        elif direction == DIR_SOUTH:
+            if cell.walls.south or ncell.walls.north:
+                return False
+        elif direction == DIR_EAST:
+            if cell.walls.east or ncell.walls.west:
+                return False
+        else:  # WEST
+            if cell.walls.west or ncell.walls.east:
+                return False
+        # Non-traversable occupancy
+        if (
+            cell.occupancy == OccupancyState.NON_TRAVERSABLE
+            or ncell.occupancy == OccupancyState.NON_TRAVERSABLE
+        ):
+            return False
+        return True
+
+    # ---------- ExplorationProgressStatus (DAT--3, CMP--2->CMP--3) ----------
+
+    def compute_exploration_progress_status(
+        self,
+    ) -> Dict[str, Any]:
+        """Return all_reachable_explored and frontier cells.
+
+        Implementation per DAT--3 using reachable-cell semantics LL-PLAN-1.1.6.
+        """
+        start = (self.map.current_x, self.map.current_y)
+        reachable_free = self._bfs_reachable_free(start)
+        frontier_cells = []
+
+        for (x, y) in reachable_free:
+            cell = self.map.cells[x][y]
+            if (
+                cell.occupancy == OccupancyState.FREE
+                and cell.unknown_neighbor_count > 0
+            ):
+                frontier_cells.append({"x": x, "y": y})
+
+        all_reachable_explored = len(frontier_cells) == 0
+        return {
+            "all_reachable_explored": all_reachable_explored,
+            "frontier_cells": frontier_cells,
+        }
+
+    def _bfs_reachable_free(self, start: Tuple[int, int]) -> List[Tuple[int, int]]:
+        """Return all free cells reachable from start (DAT--3)."""
+        sx, sy = start
+        visited = [[False] * GRID_HEIGHT for _ in range(GRID_WIDTH)]
+        q: List[Tuple[int, int]] = []
+        if not (0 <= sx < GRID_WIDTH and 0 <= sy < GRID_HEIGHT):
+            return []
+        if self.map.cells[sx][sy].occupancy != OccupancyState.FREE:
+            return []
+
+        visited[sx][sy] = True
+        q.append((sx, sy))
+        res: List[Tuple[int, int]] = []
+
+        while q:
+            x, y = q.pop(0)
+            res.append((x, y))
+            for nx, ny, direction in self._neighbors(x, y):
+                if visited[nx][ny]:
+                    continue
+                ncell = self.map.cells[nx][ny]
+                if ncell.occupancy != OccupancyState.FREE:
+                    continue
+                if not self._edge_traversable(x, y, nx, ny, direction):
+                    continue
+                visited[nx][ny] = True
+                q.append((nx, ny))
+        return res
+
+    # ---------- API for GridPathPlanner (CMP--3->CMP--4) ----------
+
+    def get_grid_map_and_walls(self) -> GridMap:
+        """Return reference to internal map (read-only by convention)."""
+        return self.map
+
+    # ---------- Second run evaluation (CMP--3<->CMP--6/CMP--10) ----------
+
+    def evaluate_second_run_success(self, final_x: int, final_y: int) -> Dict[str, Any]:
+        """Check final pose is free, in goal region, and within map.
+
+        Trace:
+        - CMP--3: SecondRunSuccessEvaluationResult
+        - DAT--1, DAT--3 invariants
+        """
+        success = True
+        reasons = []
+
+        if not (0 <= final_x < GRID_WIDTH and 0 <= final_y < GRID_HEIGHT):
+            success = False
+            reasons.append("OUT_OF_BOUNDS")
+        else:
+            cell = self.map.cells[final_x][final_y]
+            if cell.occupancy != OccupancyState.FREE:
+                success = False
+                reasons.append("FINAL_CELL_NOT_FREE")
+            if not cell.is_goal_region:
+                success = False
+                reasons.append("FINAL_CELL_NOT_GOAL_REGION")
+
+        # For simplicity, assume any path executed by MotionController
+        # respects wall constraints by design (CMP--5 invariants).
+        return {"success": success, "reasons": reasons}
+]]>
+        </CodeFile>
+
+        <CodeFile name="planning/grid_path_planner.py">
+<![CDATA[
+"""
+CMP--4 GridPathPlanner implementation.
+
+Traces:
+- Component CMP--4
+- Data DAT--3, DAT--4
+"""
+
+from __future__ import annotations
+from typing import Dict, Any, List, Optional, Tuple
+
+from common.types import (
+    GridMap,
+    GridPath,
+    CellCoord,
+    GRID_WIDTH,
+    GRID_HEIGHT,
+    DIR_NORTH,
+    DIR_EAST,
+    DIR_SOUTH,
+    DIR_WEST,
+    DIRECTION_VECTORS,
+    OccupancyState,
+)
+from common.utils import log
+
+
+class GridPathPlanner:
+    """BFS-based shortest path planner on GridMap."""
+
+    def __init__(self, planner_cfg: Dict[str, Any]) -> None:
+        """
+        planner_cfg from ConfigurationManager.get_planner_config() (CMP--1->CMP--4).
+        """
+        self.use_diagonal_moves = planner_cfg.get("use_diagonal_moves", False)
+        self.cost_per_step = planner_cfg.get("cost_per_step", 1)
+
+    # ---------- helpers ----------
+
+    def _neighbors(
+        self, m: GridMap, x: int, y: int
+    ) -> List[Tuple[int, int, int]]:
+        res = []
+        for direction, (dx, dy) in DIRECTION_VECTORS.items():
+            nx = x + dx
+            ny = y + dy
+            if 0 <= nx < GRID_WIDTH and 0 <= ny < GRID_HEIGHT:
+                if self._edge_traversable(m, x, y, nx, ny, direction):
+                    res.append((nx, ny, direction))
+        return res
+
+    def _edge_traversable(
+        self, m: GridMap, x: int, y: int, nx: int, ny: int, direction: int
+    ) -> bool:
+        cell = m.cells[x][y]
+        ncell = m.cells[nx][ny]
+        # Wall checks consistent with DAT--2/DAT--3
+        if direction == DIR_NORTH:
+            if cell.walls.north or ncell.walls.south:
+                return False
+        elif direction == DIR_SOUTH:
+            if cell.walls.south or ncell.walls.north:
+                return False
+        elif direction == DIR_EAST:
+            if cell.walls.east or ncell.walls.west:
+                return False
+        else:  # WEST
+            if cell.walls.west or ncell.walls.east:
+                return False
+
+        if (
+            cell.occupancy != OccupancyState.FREE
+            or ncell.occupancy != OccupancyState.FREE
+        ):
+            return False
+        return True
+
+    # ---------- BFS shortest path (DAT--4) ----------
+
+    def compute_shortest_path(
+        self, m: GridMap, start: CellCoord, target: CellCoord
+    ) -> Optional[GridPath]:
+        """Return minimal-step path or None if no path.
+
+        Implements DAT--4 compute_shortest_path.
+        """
+        sx, sy = start.x, start.y
+        tx, ty = target.x, target.y
+
+        if not (0 <= sx < GRID_WIDTH and 0 <= sy < GRID_HEIGHT):
+            return None
+        if not (0 <= tx < GRID_WIDTH and 0 <= ty < GRID_HEIGHT):
+            return None
+
+        if (
+            m.cells[sx][sy].occupancy != OccupancyState.FREE
+            or m.cells[tx][ty].occupancy != OccupancyState.FREE
+        ):
+            return None
+
+        visited = [[False] * GRID_HEIGHT for _ in range(GRID_WIDTH)]
+        pred: List[List[Optional[Tuple[int, int]]]] = [
+            [None] * GRID_HEIGHT for _ in range(GRID_WIDTH)
+        ]
+        pred_dir: List[List[int]] = [
+            [0] * GRID_HEIGHT for _ in range(GRID_WIDTH)
+        ]
+
+        q: List[Tuple[int, int]] = []
+        visited[sx][sy] = True
+        q.append((sx, sy))
+
+        found = False
+        while q:
+            x, y = q.pop(0)
+            if x == tx and y == ty:
+                found = True
+                break
+            for nx, ny, direction in self._neighbors(m, x, y):
+                if not visited[nx][ny]:
+                    visited[nx][ny] = True
+                    pred[nx][ny] = (x, y)
+                    pred_dir[nx][ny] = direction
+                    q.append((nx, ny))
+
+        if not found:
+            return None
+
+        # Reconstruct path
+        path = GridPath()
+        cx, cy = tx, ty
+        cells_rev: List[CellCoord] = []
+        moves_rev: List[int] = []
+        while not (cx == sx and cy == sy):
+            cells_rev.append(CellCoord(cx, cy))
+            d = pred_dir[cx][cy]
+            moves_rev.append(d)
+            px, py = pred[cx][cy]
+            cx, cy = px, py
+        cells_rev.append(CellCoord(sx, sy))
+
+        # Reverse
+        for coord in reversed(cells_rev):
+            path.cells.append(coord)
+        for d in reversed(moves_rev):
+        # moves[i] moves from cells[i] to cells[i+1]
+            path.moves.append(d)
+
+        return path
+
+    # ---------- goal-region planning (DAT--4) ----------
+
+    def compute_shortest_path_to_goal_region(
+        self, m: GridMap, start: CellCoord
+    ) -> Optional[GridPath]:
+        """Find minimal path from start to any goal-region cell."""
+        # BFS from start, track distance; record best goal.
+        sx, sy = start.x, start.y
+        if not (0 <= sx < GRID_WIDTH and 0 <= sy < GRID_HEIGHT):
+            return None
+        if m.cells[sx][sy].occupancy != OccupancyState.FREE:
+            return None
+
+        visited = [[False] * GRID_HEIGHT for _ in range(GRID_WIDTH)]
+        pred: List[List[Optional[Tuple[int, int]]]] = [
+            [None] * GRID_HEIGHT for _ in range(GRID_WIDTH)
+        ]
+        pred_dir: List[List[int]] = [
+            [0] * GRID_HEIGHT for _ in range(GRID_WIDTH)
+        ]
+
+        q: List[Tuple[int, int]] = []
+        visited[sx][sy] = True
+        q.append((sx, sy))
+
+        goal_cell: Optional[Tuple[int, int]] = None
+
+        while q:
+            x, y = q.pop(0)
+            cell = m.cells[x][y]
+            if cell.is_goal_region and cell.occupancy == OccupancyState.FREE:
+                goal_cell = (x, y)
+                break
+            for nx, ny, direction in self._neighbors(m, x, y):
+                if not visited[nx][ny]:
+                    visited[nx][ny] = True
+                    pred[nx][ny] = (x, y)
+                    pred_dir[nx][ny] = direction
+                    q.append((nx, ny))
+
+        if goal_cell is None:
+            return None
+
+        tx, ty = goal_cell
+        # Reconstruct
+        path = GridPath()
+        cx, cy = tx, ty
+        cells_rev: List[CellCoord] = []
+        moves_rev: List[int] = []
+        while not (cx == sx and cy == sy):
+            cells_rev.append(CellCoord(cx, cy))
+            d = pred_dir[cx][cy]
+            moves_rev.append(d)
+            px, py = pred[cx][cy]
+            cx, cy = px, py
+        cells_rev.append(CellCoord(sx, sy))
+
+        for coord in reversed(cells_rev):
+            path.cells.append(coord)
+        for d in reversed(moves_rev):
+            path.moves.append(d)
+        return path
+]]>
+        </CodeFile>
+
+        <CodeFile name="sensors/sensor_wrappers.py">
+<![CDATA[
+"""
+CMP--11 SensorHardwareWrappers.
+
+Traces:
+- Component CMP--11
+- ConnectedComponents: provides raw ultrasonic and IR readings to CMP--7
+"""
+
+from __future__ import annotations
+from typing import Optional
+
+from Waveshare.ultrasonic_sensor import UltrasonicSensor  # hardware driver
+from Waveshare.infrared import Infrared
+
+
+class SensorHardwareWrappers:
+    """Exclusive access to ultrasonic and infrared hardware."""
+
+    def __init__(self) -> None:
+        self._ultrasonic = UltrasonicSensor()
+        self._ir = Infrared()
+
+    # DAT--11 Execution comments:
+    def get_front_ultrasonic_distance_cm(self) -> Optional[float]:
+        """Return raw ultrasonic distance in cm (float).
+
+        Trace:
+        - CMP--11 Execution
+        - DAT--2, DAT--6 use this as raw basis.
+        """
+        try:
+            d = float(self._ultrasonic.distance())
+            return d
+        except Exception:
+            # Mark invalid as None
+            return None
+
+    def get_ir_left_status(self) -> int:
+        """Return raw left IR status (uint8_t-like).
+
+        Non-zero => obstacle, zero => no obstacle (DAT--2, DAT--4).
+        """
+        try:
+            return 1 if self._ir.dsl() else 0
+        except Exception:
+            return 0
+
+    def get_ir_right_status(self) -> int:
+        """Return raw right IR status (uint8_t-like)."""
+        try:
+            return 1 if self._ir.dsr() else 0
+        except Exception:
+            return 0
+]]>
+        </CodeFile>
+
+        <CodeFile name="sensors/sensor_processing.py">
+<![CDATA[
+"""
+CMP--7 SensorProcessingModule.
+
+Traces:
+- Component CMP--7
+- State machine FSM--4
+- Additional data DAT--2 (wall detection), DAT--6 (ranges)
+"""
+
+from __future__ import annotations
+from typing import List, Dict, Any, Optional
+
+from common.utils import log
+from common.events import EventBus
+from .sensor_wrappers import SensorHardwareWrappers
+
+
+class SensorProcessingModule:
+    """Unified processing of ultrasonic + IR data."""
+
+    def __init__(self, bus: EventBus, config: Dict[str, Any]) -> None:
+        """
+        config from ConfigurationManager.get_sensor_filter_debounce_config() (CMP--1->CMP--7).
+
+        Keys:
+        - ultrasonic_filter_window_size
+        - ir_confirm_count
+        - ir_clear_count
+        - min_valid_cm
+        - max_valid_cm
+        """
+        self._bus = bus
+        self._hw = SensorHardwareWrappers()
+
+        self.window_size = int(config["ultrasonic_filter_window_size"])
+        self.ir_confirm_count = int(config["ir_confirm_count"])
+        self.ir_clear_count = int(config["ir_clear_count"])
+        self.min_valid_cm = float(config["min_valid_cm"])
+        self.max_valid_cm = float(config["max_valid_cm"])
+
+        self._us_window: List[float] = []
+        self._left_count = 0
+        self._right_count = 0
+        self.left_obstacle_confirmed = False
+        self.right_obstacle_confirmed = False
+        self.filtered_distance_cm: Optional[float] = None
+
+        # For SCAN_CELL snapshots (CMP--2<->CMP--7)
+        self._scan_requested = False
+
+    # ---------- Sampling and filtering loop (FSM--4) ----------
+
+    def request_scan_snapshot(self) -> None:
+        """Called by ExplorationStateMachineController (CMP--2 ScanRequest)."""
+        self._scan_requested = True
+
+    def step(self) -> None:
+        """One acquisition/filter/update cycle.
+
+        Maps to FSM--4 states:
+        - SENSOR_IDLE -> ACQUIRE_RAW -> FILTER_AND_DEBOUNCE -> UPDATE_OUTPUT -> SENSOR_IDLE
+        """
+        # ACQUIRE_RAW
+        d_raw = self._hw.get_front_ultrasonic_distance_cm()
+        left_raw = self._hw.get_ir_left_status()
+        right_raw = self._hw.get_ir_right_status()
+
+        # FILTER_AND_DEBOUNCE (DAT--2)
+        if d_raw is not None and self.min_valid_cm <= d_raw <= self.max_valid_cm:
+            self._us_window.append(d_raw)
+            if len(self._us_window) > self.window_size:
+                self._us_window.pop(0)
+            self.filtered_distance_cm = sum(self._us_window) / len(self._us_window)
+        else:
+            # invalid reading; ignore but keep previous filtered value
+            pass
+
+        # IR interpretation non-zero => obstacle (LL-INTERF-3.2.1)
+        if left_raw != 0:
+            self._left_count += 1
+        else:
+            self._left_count -= 1
+        if right_raw != 0:
+            self._right_count += 1
+        else:
+            self._right_count -= 1
+
+        if self._left_count >= self.ir_confirm_count:
+            self.left_obstacle_confirmed = True
+            self._left_count = self.ir_confirm_count
+        elif self._left_count <= -self.ir_clear_count:
+            self.left_obstacle_confirmed = False
+            self._left_count = -self.ir_clear_count
+
+        if self._right_count >= self.ir_confirm_count:
+            self.right_obstacle_confirmed = True
+            self._right_count = self.ir_confirm_count
+        elif self._right_count <= -self.ir_clear_count:
+            self.right_obstacle_confirmed = False
+            self._right_count = -self.ir_clear_count
+
+        # UPDATE_OUTPUT
+        processed = {
+            "filtered_ultrasonic_distance_cm": self.filtered_distance_cm,
+            "ir_left_obstacle": self.left_obstacle_confirmed,
+            "ir_right_obstacle": self.right_obstacle_confirmed,
+        }
+
+        # Publish periodic data for motion controller (CMP--5 Receive ProcessedSensorDataForMotion)
+        self._bus.publish("ProcessedSensorForMotion", processed)
+
+        # If SCAN_CELL snapshot requested (CMP--2)
+        if self._scan_requested:
+            self._scan_requested = False
+            self._bus.publish("CellScanSensorData", processed)
+]]>
+        </CodeFile>
+
+        <CodeFile name="hardware/motor_interface.py">
+<![CDATA[
+"""
+CMP--12 MotorHardwareInterface.
+
+Traces:
+- Component CMP--12
+- Uses Waveshare.motor.Motor
+"""
+
+from __future__ import annotations
+from typing import Tuple
+
+from Waveshare.motor import Motor
+from common.utils import clamp
+
+
+class MotorHardwareInterface:
+    """Low-level interface wrapping Waveshare Motor (motor_set)."""
+
+    def __init__(self) -> None:
+        self._motor = Motor()
+
+    def apply_motor_command(self, left_speed: int, right_speed: int) -> None:
+        """Apply clamped 0..100 speeds to hardware.
+
+        Trace:
+        - CMP--12 Execution
+        """
+        ls = int(clamp(left_speed, 0, 100))
+        rs = int(clamp(right_speed, 0, 100))
+        self._motor.set(ls, rs)
+
+    def stop(self) -> None:
+        self._motor.stop()
+]]>
+        </CodeFile>
+
+        <CodeFile name="motion/motor_abstraction.py">
+<![CDATA[
+"""
+CMP--8 MotorAbstractionLayer.
+
+Traces:
+- Component CMP--8
+- Uses CMP--12 MotorHardwareInterface
+- Uses ConfigurationManager SpeedLimitConfig and RobotGeometryAndBrakingConfig
+"""
+
+from __future__ import annotations
+from typing import Dict, Any, Tuple
+import time
+
+from hardware.motor_interface import MotorHardwareInterface
+from common.utils import clamp
+
+
+class MotorAbstractionLayer:
+    """Translate abstract move/turn commands into low-level speed commands."""
+
+    def __init__(
+        self,
+        speed_cfg: Dict[str, Any],
+        robot_geom_cfg: Dict[str, Any],
+        cell_size_cm: float,
+    ) -> None:
+        """
+        speed_cfg from ConfigurationManager.get_speed_limit_config()
+        robot_geom_cfg from ConfigurationManager.get_robot_geometry_config()
+        """
+        self._hw = MotorHardwareInterface()
+        self.max_motor_speed_exploration = int(
+            speed_cfg["max_motor_speed_exploration"]
+        )
+        self.max_motor_speed_second_run = int(
+            speed_cfg["max_motor_speed_second_run"]
+        )
+        self.robot_radius_cm = float(robot_geom_cfg["robot_radius_cm"])
+        self.cell_size_cm = float(cell_size_cm)
+
+        # Very simple mapping from speed to timing (no encoders).
+        self.cm_per_second_at_100 = 100.0  # assumption for timing
+        self.deg_per_second_at_100 = 180.0
+
+    # ---------- mapping from motor command to velocity ----------
+
+    def _time_for_distance(self, motor_speed: int, distance_cm: float) -> float:
+        speed_cm_s = (motor_speed / 100.0) * self.cm_per_second_at_100
+        if speed_cm_s <= 0:
+            return 0
+        return distance_cm / speed_cm_s
+
+    def _time_for_rotation(self, motor_speed: int, degrees: float) -> float:
+        speed_deg_s = (motor_speed / 100.0) * self.deg_per_second_at_100
+        if speed_deg_s <= 0:
+            return 0
+        return degrees / speed_deg_s
+
+    # ---------- abstract commands (CMP--8 AbstractMotionCommand) ----------
+
+    def move_forward_one_cell(self, second_run: bool = False) -> Tuple[float, bool]:
+        """Move roughly one cell center-to-center.
+
+        Returns (distance_traveled_cm, success).
+        """
+        if second_run:
+            cmd_speed = self.max_motor_speed_second_run
+        else:
+            cmd_speed = self.max_motor_speed_exploration
+
+        t = self._time_for_distance(cmd_speed, self.cell_size_cm)
+        self._hw.apply_motor_command(cmd_speed, cmd_speed)
+        time.sleep(t)
+        self._hw.stop()
+        return (self.cell_size_cm, True)
+
+    def move_forward_distance(
+        self, distance_cm: float, second_run: bool = False
+    ) -> Tuple[float, bool]:
+        if second_run:
+            cmd_speed = self.max_motor_speed_second_run
+        else:
+            cmd_speed = self.max_motor_speed_exploration
+
+        distance_cm = float(distance_cm)
+        t = self._time_for_distance(cmd_speed, distance_cm)
+        self._hw.apply_motor_command(cmd_speed, cmd_speed)
+        time.sleep(t)
+        self._hw.stop()
+        return (distance_cm, True)
+
+    def turn_left_90(self, second_run: bool = False) -> Tuple[float, bool]:
+        if second_run:
+            cmd_speed = self.max_motor_speed_second_run
+        else:
+            cmd_speed = self.max_motor_speed_exploration
+
+        t = self._time_for_rotation(cmd_speed, 90.0)
+        self._hw.apply_motor_command(-cmd_speed, cmd_speed)
+        time.sleep(t)
+        self._hw.stop()
+        return (90.0, True)
+
+    def turn_right_90(self, second_run: bool = False) -> Tuple[float, bool]:
+        if second_run:
+            cmd_speed = self.max_motor_speed_second_run
+        else:
+            cmd_speed = self.max_motor_speed_exploration
+
+        t = self._time_for_rotation(cmd_speed, 90.0)
+        self._hw.apply_motor_command(cmd_speed, -cmd_speed)
+        time.sleep(t)
+        self._hw.stop()
+        return (90.0, True)
+
+    def stop_now(self) -> None:
+        self._hw.stop()
+]]>
+        </CodeFile>
+
+        <CodeFile name="motion/motion_controller.py">
+<![CDATA[
+"""
+CMP--5 MotionControllerAndWallAvoidance.
+
+This is a simplified implementation capturing main responsibilities:
+- Execute GridPath as sequence of turns + forward moves.
+- Use SensorProcessingModule processed data for collision avoidance.
+- Detect stalls via timeouts and preempted collisions.
+
+Traces:
+- Component CMP--5
+- State machine FSM--2
+- Data DAT--6 (collision-free motion)
+"""
+
+from __future__ import annotations
+from typing import Dict, Any, Optional, List, Tuple
+import time
+
+from common.types import (
+    GridPath,
+    DIR_NORTH,
+    DIR_EAST,
+    DIR_SOUTH,
+    DIR_WEST,
+    DIRECTION_VECTORS,
+    rotate_left,
+    rotate_right,
+)
+from common.utils import monotonic_time_s, log
+from common.events import EventBus
+from motion.motor_abstraction import MotorAbstractionLayer
+
+
+class MotionControllerAndWallAvoidance:
+    """Bridge between planner paths and motor abstraction, with collision checks."""
+
+    def __init__(
+        self,
+        bus: EventBus,
+        motion_cfg: Dict[str, Any],
+        robot_geom_cfg: Dict[str, Any],
+        cell_size_cm: float,
+    ) -> None:
+        """
+        motion_cfg from ConfigurationManager.get_motion_safety_and_speed_config()
+        robot_geom_cfg from ConfigurationManager.get_robot_geometry_config()
+        """
+        self._bus = bus
+        self._cell_size_cm = cell_size_cm
+        self.safety_margin_cm = float(motion_cfg["safety_margin_cm"])
+        self.ultra_min = float(motion_cfg["ultrasonic_min_valid_cm"])
+        self.ultra_max = float(motion_cfg["ultrasonic_max_valid_cm"])
+        self.robot_radius_cm = float(robot_geom_cfg["robot_radius_cm"])
+        self.uncertainty_margin_cm = float(robot_geom_cfg["uncertainty_margin_cm"])
+
+        self.stall_timeout_per_cell_s = motion_cfg.get(
+            "stall_timeout_per_cell_s", 3.0
+        )
+        self.max_obstacle_retries = motion_cfg.get("max_obstacle_retries", 3)
+
+        self._mal = MotorAbstractionLayer(
+            {
+                "max_motor_speed_exploration": motion_cfg["max_motor_speed_exploration"],
+                "max_motor_speed_second_run": motion_cfg[
+                    "max_motor_speed_second_run"
+                ],
+            },
+            robot_geom_cfg,
+            cell_size_cm,
+        )
+
+        # Processed sensor feed (CMP--7 -> CMP--5)
+        self.filtered_distance_cm: Optional[float] = None
+        self.ir_left_obstacle = False
+        self.ir_right_obstacle = False
+        self._bus.subscribe("ProcessedSensorForMotion", self._on_processed_sensor)
+
+        # Internal state (FSM--2)
+        self._state = "MOTION_IDLE"
+        self._current_heading = DIR_NORTH
+        self._obstacle_retries = 0
+
+    def _on_processed_sensor(self, data: Dict[str, Any]) -> None:
+        self.filtered_distance_cm = data["filtered_ultrasonic_distance_cm"]
+        self.ir_left_obstacle = data["ir_left_obstacle"]
+        self.ir_right_obstacle = data["ir_right_obstacle"]
+
+    # ---------- collision check (DAT--6) ----------
+
+    def _can_continue_forward(self, speed_cm_s: float) -> bool:
+        """Predict collision based on DAT--6 d_min."""
+        if self.filtered_distance_cm is None:
+            return True  # cannot judge; be permissive at low speeds
+
+        stopping_distance = speed_cm_s * 0.2  # simple conservative model
+        d_min = (
+            self.robot_radius_cm
+            + stopping_distance
+            + self.safety_margin_cm
+            + self.uncertainty_margin_cm
+        )
+        return self.filtered_distance_cm >= d_min
+
+    # ---------- path execution ----------
+
+    def execute_path(
+        self,
+        path: GridPath,
+        start_heading: int,
+        second_run: bool,
+    ) -> Dict[str, Any]:
+        """Execute a path; returns ExplorationMotionStatus / ReturnExecutionStatus / SecondRunExecutionStatus.
+
+        Trace:
+        - CMP--5 ExplorationPathExecuteRequest / ReturnPathExecuteRequest / SecondRunPathExecuteRequest.
+        - FSM--2 transitions EXECUTING_MOVE / EXECUTING_TURN / PREEMPTED_FOR_COLLISION / STALL_PENDING.
+        """
+        self._current_heading = start_heading
+        reached_target_cell = False
+        cause_of_stop = "OK"
+        executed_steps = 0
+
+        if path.is_empty():
+            return {
+                "reached_target_cell": True,
+                "cause_of_stop": "OK",
+                "executed_steps": 0,
+            }
+
+        # For each move, perform heading alignment and forward cell transition.
+        for move_dir in path.moves:
+            # Determine required rotations to align current_heading with move_dir.
+            while self._current_heading != move_dir:
+                # Choose left or right (here simple; can be improved).
+                # We rotate in place by 90° steps.
+                self._state = "EXECUTING_TURN"
+                deg, _ = self._mal.turn_left_90(second_run=second_run)
+                self._current_heading = rotate_left(self._current_heading)
+
+            # Now move forward one cell.
+            self._state = "EXECUTING_MOVE"
+            start_time = monotonic_time_s()
+            # Determine approximate linear speed for collision computation.
+            if second_run:
+                motor_cmd = self._mal.max_motor_speed_second_run
+            else:
+                motor_cmd = self._mal.max_motor_speed_exploration
+            speed_cm_s = (motor_cmd / 100.0) * self._mal.cm_per_second_at_100
+
+            # Pre-motion collision check
+            if not self._can_continue_forward(speed_cm_s):
+                self._state = "PREEMPTED_FOR_COLLISION"
+                self._mal.stop_now()
+                self._obstacle_retries += 1
+                if (
+                    monotonic_time_s() - start_time >= self.stall_timeout_per_cell_s
+                    or self._obstacle_retries >= self.max_obstacle_retries
+                ):
+                    self._state = "STALL_PENDING"
+                    cause_of_stop = "STALL"
+                    # Notify stall detection module (CMP--9)
+                    self._bus.publish(
+                        "StallDetected",
+                        {
+                            "current_heading": self._current_heading,
+                            "elapsed_time": monotonic_time_s() - start_time,
+                        },
+                    )
+                    return {
+                        "reached_target_cell": False,
+                        "cause_of_stop": cause_of_stop,
+                        "executed_steps": executed_steps,
+                    }
+                else:
+                    # try again next step; treat as preemption (DAT--6)
+                    cause_of_stop = "COLLISION_PREVENTION"
+                    return {
+                        "reached_target_cell": False,
+                        "cause_of_stop": cause_of_stop,
+                        "executed_steps": executed_steps,
+                    }
+
+            # Move now
+            dist, success = self._mal.move_forward_one_cell(second_run=second_run)
+            self._state = "MOTION_IDLE"
+            executed_steps += 1
+            if not success:
+                cause_of_stop = "MOTION_ERROR"
+                break
+
+        reached_target_cell = cause_of_stop == "OK"
+        return {
+            "reached_target_cell": reached_target_cell,
+            "cause_of_stop": cause_of_stop,
+            "executed_steps": executed_steps,
+        }
+]]>
+        </CodeFile>
+
+        <CodeFile name="motion/stall_detection.py">
+<![CDATA[
+"""
+CMP--9 StallDetectionAndRecovery.
+
+Simplified version:
+- Listens to StallDetected from MotionController.
+- Emits StallConditionSignal and RecoveryCompletedNotification for exploration controller.
+"""
+
+from __future__ import annotations
+from typing import Dict, Any
+
+from common.events import EventBus
+from common.utils import log
+
+
+class StallDetectionAndRecovery:
+    """Handle stall notifications and publish high-level recovery results."""
+
+    def __init__(self, bus: EventBus, config: Dict[str, Any]) -> None:
+        """
+        config from ConfigurationManager.get_stall_detection_config()
+        """
+        self._bus = bus
+        self.move_timeout_per_cell_s = config["move_timeout_per_cell_s"]
+        self.max_obstacle_retries = config["max_obstacle_retries"]
+        self.stall_replan_delay_s = config["stall_replan_delay_s"]
+
+        self._bus.subscribe("StallDetected", self._on_stall_detected)
+
+    def _on_stall_detected(self, info: Dict[str, Any]) -> None:
+        """Triggered by MotionController (CMP--5->CMP--9)."""
+        log("CMP--9: Stall detected: %r" % (info,))
+        # Notify exploration controller via StallConditionSignal
+        self._bus.publish("ExplorationStallCondition", info)
+
+        # For now, assume recovery always fails (implementation stub).
+        self._bus.publish(
+            "RecoveryCompletedNotification", {"success": False}
+        )
+]]>
+        </CodeFile>
+
+        <CodeFile name="run/run_controller.py">
+<![CDATA[
+"""
+CMP--6 RunController.
+
+Simplified:
+- Waits for exploration start and termination events.
+- After exploration termination, triggers fastest path computation and (stub) second run.
+"""
+
+from __future__ import annotations
+from typing import Dict, Any, Optional
+
+from common.events import EventBus
+from common.utils import log
+from common.types import CellCoord, GridPath
+from planning.grid_path_planner import GridPathPlanner
+from mapping.map_manager import MapManager
+from motion.motion_controller import MotionControllerAndWallAvoidance
+
+
+class RunController:
+    """High-level sequence of runs (explore, return, second run)."""
+
+    def __init__(
+        self,
+        bus: EventBus,
+        planner: GridPathPlanner,
+        map_manager: MapManager,
+        motion_controller: MotionControllerAndWallAvoidance,
+        second_run_cfg: Dict[str, Any],
+    ) -> None:
+        self._bus = bus
+        self._planner = planner
+        self._map = map_manager
+        self._motion = motion_controller
+        self.second_run_cfg = second_run_cfg
+
+        self._state = "RUN_INIT"
+        self._fastest_path: Optional[GridPath] = None
+
+        self._bus.subscribe("ExplorationStartEvent", self._on_exploration_start)
+        self._bus.subscribe("ExplorationTerminatedEvent", self._on_exploration_terminated)
+
+    def _on_exploration_start(self, payload: Dict[str, Any]) -> None:
+        self._state = "EXPLORATION_RUNNING"
+        log("CMP--6: Exploration started")
+
+    def _on_exploration_terminated(self, payload: Dict[str, Any]) -> None:
+        self._state = "RETURN_TO_START"
+        log("CMP--6: Exploration terminated, reason=%s" % payload.get("reason"))
+
+        # Request fastest path to goal
+        m = self._map.get_grid_map_and_walls()
+        start = CellCoord(0, 0)
+        self._fastest_path = self._planner.compute_shortest_path_to_goal_region(m, start)
+        if self._fastest_path is None:
+            log("CMP--6: No fastest path to goal; skipping second run")
+        else:
+            log("CMP--6: Fastest path computed, length=%d" % self._fastest_path.length)
+
+        # Return to start from current pose (stub: assume already at start)
+        self._state = "WAIT_FOR_FASTEST_PATH"
+        # Immediately transition to SECOND_RUN if path exists
+        if self._fastest_path:
+            self._state = "SECOND_RUN"
+            status = self._motion.execute_path(
+                self._fastest_path, start_heading=0, second_run=True
+            )
+            self._state = "RUN_COMPLETE"
+            # Notify result evaluator (CMP--10)
+            self._bus.publish(
+                "SecondRunCompletionNotification",
+                {
+                    "status": status,
+                    "final_cell": {"x": start.x, "y": start.y},  # stub
+                },
+            )
+]]>
+        </CodeFile>
+
+        <CodeFile name="run/second_run_evaluator.py">
+<![CDATA[
+"""
+CMP--10 SecondRunResultEvaluatorAndReporter.
+
+Simplified:
+- Receives SecondRunCompletionNotification from RunController.
+- Asks MapManager for success evaluation.
+- Publishes SecondRunResult and logs via ExternalStatusLogger.
+"""
+
+from __future__ import annotations
+from typing import Dict, Any
+
+from common.events import EventBus
+from common.utils import log
+from mapping.map_manager import MapManager
+
+
+class SecondRunResultEvaluatorAndReporter:
+    """Evaluate second run success and report."""
+
+    def __init__(self, bus: EventBus, map_manager: MapManager) -> None:
+        self._bus = bus
+        self._map = map_manager
+
+        self._bus.subscribe(
+            "SecondRunCompletionNotification", self._on_second_run_completed
+        )
+
+    def _on_second_run_completed(self, payload: Dict[str, Any]) -> None:
+        """Handle second run completion (CMP--10)."""
+        final_cell = payload.get("final_cell", {"x": 0, "y": 0})
+        x = int(final_cell["x"])
+        y = int(final_cell["y"])
+        eval_res = self._map.evaluate_second_run_success(x, y)
+        success = eval_res["success"]
+        reasons = eval_res["reasons"]
+
+        result = {
+            "success": success,
+            "reasons": reasons,
+        }
+        # Notify RunController / others
+        self._bus.publish("SecondRunResult", result)
+        # Log externally (CMP--13)
+        self._bus.publish("ExternalRunStatusOutput", result)
+]]>
+        </CodeFile>
+
+        <CodeFile name="logging/external_status_logger.py">
+<![CDATA[
+"""
+CMP--13 ExternalStatusLogger.
+
+Traces:
+- Component CMP--13
+"""
+
+from __future__ import annotations
+from typing import Dict, Any
+
+from common.events import EventBus
+from common.utils import log
+
+
+class ExternalStatusLogger:
+    """Simple console logger for run status."""
+
+    def __init__(self, bus: EventBus) -> None:
+        self._bus = bus
+        self._bus.subscribe("ExternalRunStatusOutput", self._on_status)
+
+    def _on_status(self, payload: Dict[str, Any]) -> None:
+        log("CMP--13: Second run result: %r" % (payload,))
+]]>
+        </CodeFile>
+
         <CodeFile name="main.py">
 <![CDATA[
 """
 Main entry point.
 
-High-level wiring of components per CMP--10 (Scheduler and Initialization).
+Wires together core components according to Design:
+- CMP--1 ConfigurationManager
+- CMP--3 MapManager
+- CMP--4 GridPathPlanner
+- CMP--7 SensorProcessingModule
+- CMP--5 MotionControllerAndWallAvoidance
+- CMP--9 StallDetectionAndRecovery
+- CMP--6 RunController
+- CMP--10 SecondRunResultEvaluatorAndReporter
+- CMP--13 ExternalStatusLogger
+
+State machines:
+- FSM--1 ExplorationStateMachineController is largely stubbed (not fully implemented),
+  but hooks for exploration start and termination events are present via RunController.
+- FSM--2, FSM--4 behaviors are partially realized.
+
+This main loop:
+- Initializes all modules.
+- Periodically steps SensorProcessingModule.
+- For demonstration, triggers a synthetic ExplorationStartEvent and
+  ExplorationTerminatedEvent so RunController+SecondRunResultEvaluator execute.
 """
 
-from core.scheduler import Scheduler  # CMP--10
-from core.sensor_layer import SensorAbstractionLayer  # CMP--7
-from core.gridmap import GridMap  # CMP--3
-from core.mapping import MappingModule  # CMP--6
-from core.pose import PoseEstimator  # CMP--9
-from core.frontier import FrontierGenerator  # CMP--2
-from core.planner import PathPlanner  # CMP--4
-from core.goal_region import GoalRegionSelector  # CMP--5
-from core.motion_control import MotionController  # CMP--8
-from core.mission_control import MissionController  # CMP--1
-from core.exploration_status import ExplorationStatus  # CMP--11
-from core.events import EventQueue  # DAT--7
-from core.config import Config
-from Waveshare.battery import Battery
-from Waveshare.motor import Motor
-from Waveshare.ultrasonic_sensor import UltrasonicSensor
-from Waveshare.infrared import Infrared
+from __future__ import annotations
+import time
+
+from common.events import EventBus
+from common.utils import log
+from config.configuration_manager import ConfigurationManager
+from mapping.map_manager import MapManager
+from planning.grid_path_planner import GridPathPlanner
+from sensors.sensor_processing import SensorProcessingModule
+from motion.motion_controller import MotionControllerAndWallAvoidance
+from motion.stall_detection import StallDetectionAndRecovery
+from run.run_controller import RunController
+from run.second_run_evaluator import SecondRunResultEvaluatorAndReporter
+from logging.external_status_logger import ExternalStatusLogger
+from common.types import CellCoord
 
 
-def create_system():
-    """Initialize all modules and wire dependencies. Traces: CMP--10, CMP--1..CMP--11."""
-    config = Config()
+def main() -> None:
+    # Global event bus
+    bus = EventBus()
 
-    # Hardware objects
-    battery = Battery()
-    motor_hw = Motor()
-    ultrasonic = UltrasonicSensor()
-    infrared = Infrared()
+    # CMP--1
+    cfg = ConfigurationManager()
 
-    # Shared infra
-    event_queue = EventQueue(size=16)  # DAT--7
-    grid_map = GridMap(config=config)  # CMP--3
-    pose = PoseEstimator(config=config)  # CMP--9
-    sal = SensorAbstractionLayer(
-        ultrasonic=ultrasonic,
-        infrared=infrared,
-        config=config,
-    )  # CMP--7
-    mapping = MappingModule(
-        grid_map=grid_map,
-        config=config,
-    )  # CMP--6
-    planner = PathPlanner(
-        grid_map=grid_map,
-        config=config,
-    )  # CMP--4
-    frontier = FrontierGenerator(
-        grid_map=grid_map,
-        planner=planner,
-        config=config,
-    )  # CMP--2
-    goal_region = GoalRegionSelector(
-        grid_map=grid_map,
-        planner=planner,
-        config=config,
-    )  # CMP--5
-    motion = MotionController(
-        motor=motor_hw,
-        sal=sal,
-        config=config,
-    )  # CMP--8
-    exploration_status = ExplorationStatus(
-        grid_map=grid_map,
-        config=config,
-        event_queue=event_queue,
-    )  # CMP--11
-    mission = MissionController(
-        grid_map=grid_map,
-        frontier=frontier,
-        planner=planner,
-        goal_region=goal_region,
-        motion=motion,
-        exploration_status=exploration_status,
-        sal=sal,
-        pose=pose,
-        event_queue=event_queue,
-        config=config,
-    )  # CMP--1
+    if cfg.flags["CONFIG_FATAL"]:
+        log("Fatal configuration; aborting execution")
+        return
 
-    scheduler = Scheduler(
-        config=config,
-        sal=sal,
-        grid_map=grid_map,
-        mapping=mapping,
-        mission=mission,
-        planner=planner,
-        motion=motion,
-        pose=pose,
-        exploration_status=exploration_status,
-    )  # CMP--10
+    # CMP--3
+    map_geom_cfg = cfg.get_map_geometry_config()
+    map_manager = MapManager(map_geom_cfg)
 
-    return scheduler, battery
+    # CMP--4
+    planner_cfg = cfg.get_planner_config()
+    planner = GridPathPlanner(planner_cfg)
 
+    # CMP--7
+    sensor_cfg = cfg.get_sensor_filter_debounce_config()
+    sensor_proc = SensorProcessingModule(bus, sensor_cfg)
 
-def main():
-    scheduler, battery = create_system()
-    # Simple blocking loop. In MicroPython this should be the only top-level loop.
-    scheduler.run_forever()
+    # CMP--5
+    motion_cfg = cfg.get_motion_safety_and_speed_config()
+    robot_geom_cfg = cfg.get_robot_geometry_config()
+    motion = MotionControllerAndWallAvoidance(
+        bus,
+        motion_cfg,
+        robot_geom_cfg,
+        cell_size_cm=map_geom_cfg["cell_size_cm"],
+    )
+
+    # CMP--9
+    stall_cfg = cfg.get_stall_detection_config()
+    stall = StallDetectionAndRecovery(bus, stall_cfg)
+
+    # CMP--6
+    second_run_cfg = cfg.get_second_run_speed_config()
+    run_ctrl = RunController(bus, planner, map_manager, motion, second_run_cfg)
+
+    # CMP--10
+    evaluator = SecondRunResultEvaluatorAndReporter(bus, map_manager)
+
+    # CMP--13
+    logger = ExternalStatusLogger(bus)
+
+    log("System initialized; starting demo loop")
+
+    # Demo: simulate exploration start and termination after short delay
+    bus.publish("ExplorationStartEvent", {"reason": "MANUAL_TRIGGER"})
+    start_time = time.ticks_ms()
+    # Main loop: sample sensors at ~50 Hz, then after some time stop exploration.
+    while True:
+        sensor_proc.step()
+        time.sleep(0.02)  # 50 Hz
+
+        if time.ticks_diff(time.ticks_ms(), start_time) > 2000:
+            # Simulate mapping completion event once
+            bus.publish(
+                "ExplorationTerminatedEvent",
+                {"reason": "MAPPING_COMPLETE"},
+            )
+            # Allow second run handling to execute, then break.
+            time.sleep(1.0)
+            break
+
+    log("Main demo completed")
 
 
 if __name__ == "__main__":
     main()
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/config.py">
-<![CDATA[
-"""
-Configuration parameters.
-
-Traces:
-- DAT--2 Traversal Cost Model Parameters
-- DAT--3 Time-Aware Planning and Nominal Cell Traversal Duration
-- DAT--4 Ultrasonic Uncertainty and Clearance Checks
-- DAT--5 Sensor Filtering and Consistency Parameters
-- DAT--6 Motion Primitive Specification
-"""
-
-class Config:
-    def __init__(self):
-        # --- DAT--5: sampling frequency and filter windows ---
-        self.sampling_frequency_hz = 20.0  # in [10,50], default 20
-        self.control_loop_period_s = 1.0 / self.sampling_frequency_hz
-
-        self.ultrasonic_window = 3
-        self.ir_window = 3
-        self.consistency_N = 3
-
-        # --- DAT--3: time-aware planning parameters ---
-        self.exploration_time_limit_ms = 5 * 60 * 1000  # 5 minutes
-        # nominal traversal duration per cell (ms)
-        self.nominal_cell_traversal_ms = 1000  # can be tuned
-
-        # --- DAT--2: traversal cost profiles ---
-        self.exploration_straight_cost = 1.0
-        self.exploration_turn_penalty = 0.5
-
-        # Second run: cost as time
-        self.second_run_straight_cost = 1.0  # scaled appropriately
-        self.second_run_turn_penalty = 0.5
-
-        # --- DAT--4: ultrasonic and clearance model ---
-        self.robot_radius_cm = 5.5
-        self.wall_thickness_cm = 1.6
-        self.cell_size_cm = 17.2
-        self.clearance_margin_cm = 3.0
-        self.ultrasonic_uncertainty_cm = 12.0
-
-        # Emergency stop
-        self.emergency_stop_distance_cm = 10.0  # conservative
-        self.max_exploration_speed_cm_s = 10.0
-        self.max_second_run_speed_cm_s = 15.0
-
-        # --- DAT--6: motion primitives ---
-        self.motion_primitive_cell_length_cm = self.cell_size_cm
-        # motor speed range [0, 100]; map cm/s to percentage (simple linear scaling)
-        self.motor_speed_scale = 5.0  # 1 speed unit ~= 5 cm/s
-
-        # Rate limiting (CMP--8 invariant)
-        self.max_speed_delta_per_cycle = 20  # motor units per cycle
-
-        # Grid size (DAT--1)
-        self.rows = 4
-        self.cols = 8
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/types.py">
-<![CDATA[
-"""
-Common enums and simple types.
-
-Traces:
-- DAT--1 Grid Map Data Structures
-- DAT--2 Traversal Cost Model Parameters
-"""
-
-from micropython import const
-
-# --- DAT--1: cell and wall state enums ---
-CELL_UNKNOWN = const(0)
-CELL_FREE = const(1)
-CELL_BLOCKED = const(2)
-
-WALL_UNKNOWN = const(0)
-WALL_PRESENT = const(1)
-WALL_ABSENT = const(2)
-
-# Mission-related status enums
-RETURN_NOT_EXECUTED = const(0)
-RETURN_SUCCESS = const(1)
-RETURN_FAILURE = const(2)
-
-SECOND_RUN_NOT_EXECUTED = const(0)
-SECOND_RUN_SUCCESS = const(1)
-SECOND_RUN_FAILURE = const(2)
-
-# Mission states for FSM--1 (CMP--1)
-MISSION_IDLE = 0
-MISSION_EXPLORE = 1
-MISSION_RETURN_TO_START = 2
-MISSION_SECOND_RUN = 3
-MISSION_COMPLETED = 4
-
-# Simple structure helpers (lightweight since no typing module)
-class Cell:
-    __slots__ = ("row", "col")
-    def __init__(self, row, col):
-        self.row = row
-        self.col = col
-
-    def __iter__(self):
-        yield self.row
-        yield self.col
-
-    def __repr__(self):
-        return "Cell(%d,%d)" % (self.row, self.col)
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/events.py">
-<![CDATA[
-"""
-Event queue infrastructure.
-
-Traces:
-- DAT--7 Event Queue for Exploration and Mission Events
-- Used by CMP--1 (MissionControl) and CMP--11 (ExplorationStatus)
-"""
-
-class EventType:
-    EXPLORATION_COMPLETED = 1
-    EXPLORATION_TIMEOUT = 2
-    PATH_INVALIDATED = 3
-    RETURN_COMPLETED = 4
-    SECOND_RUN_COMPLETED = 5
-
-
-class Event:
-    __slots__ = ("etype", "timestamp_ms", "payload")
-    def __init__(self, etype, timestamp_ms, payload=None):
-        self.etype = etype
-        self.timestamp_ms = timestamp_ms
-        self.payload = payload
-
-
-class EventQueue:
-    """Fixed-size circular buffer event queue. (DAT--7)"""
-
-    def __init__(self, size):
-        self._size = size
-        self._buf = [None] * size
-        self._head = 0
-        self._tail = 0
-        self._full = False
-
-    def enqueue(self, event):
-        if self._full:
-            # Drop oldest event
-            self._head = (self._head + 1) % self._size
-        self._buf[self._tail] = event
-        self._tail = (self._tail + 1) % self._size
-        self._full = self._tail == self._head
-
-    def dequeue_all(self):
-        """Return list of all currently queued events and clear queue."""
-        events = []
-        while (self._head != self._tail) or self._full:
-            events.append(self._buf[self._head])
-            self._buf[self._head] = None
-            self._head = (self._head + 1) % self._size
-            if self._full and self._head == self._tail:
-                self._full = False
-        return events
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/gridmap.py">
-<![CDATA[
-"""
-Grid Map Module.
-
-Traces:
-- CMP--3 Grid Map Module
-- DAT--1 Grid Map Data Structures
-"""
-
-from core.types import CELL_UNKNOWN, CELL_FREE, CELL_BLOCKED
-from core.types import WALL_UNKNOWN, WALL_PRESENT, WALL_ABSENT
-
-
-class GridMap:
-    """4x8 grid map with cell and wall classifications. (CMP--3, DAT--1)"""
-
-    def __init__(self, config):
-        self.config = config
-        self.rows = config.rows
-        self.cols = config.cols
-
-        # DAT--1: cell and wall storage
-        self.cells = [[CELL_UNKNOWN for _ in range(self.cols)] for _ in range(self.rows)]
-        # Horizontal walls: between (row, col) and (row+1, col) => 3 x 8
-        self.h_walls = [[WALL_UNKNOWN for _ in range(self.cols)] for _ in range(self.rows - 1)]
-        # Vertical walls: between (row, col) and (row, col+1) => 4 x 7
-        self.v_walls = [[WALL_UNKNOWN for _ in range(self.cols - 1)] for _ in range(self.rows)]
-
-        self.unknown_cells_count = self.rows * self.cols
-        # Approximate wall count: horizontal + vertical
-        self.unknown_walls_count = (self.rows - 1) * self.cols + self.rows * (self.cols - 1)
-        self.map_complete = False
-
-        self.start_cell = (0, 0)
-
-        self.init_map()
-
-    # --- Initialization (CMP--3.Execution #1) ---
-
-    def init_map(self):
-        """Initialize cells and walls to UNKNOWN and start cell FREE."""
-        for r in range(self.rows):
-            for c in range(self.cols):
-                self.cells[r][c] = CELL_UNKNOWN
-        for r in range(self.rows - 1):
-            for c in range(self.cols):
-                self.h_walls[r][c] = WALL_UNKNOWN
-        for r in range(self.rows):
-            for c in range(self.cols - 1):
-                self.v_walls[r][c] = WALL_UNKNOWN
-        self.unknown_cells_count = self.rows * self.cols
-        self.unknown_walls_count = (self.rows - 1) * self.cols + self.rows * (self.cols - 1)
-        # Start cell FREE (CMP--3.Execution)
-        sr, sc = self.start_cell
-        self._set_cell_state(sr, sc, CELL_FREE)
-
-    # --- Queries (CMP--3.Purpose) ---
-
-    def in_bounds(self, row, col):
-        return 0 &lt;= row &lt; self.rows and 0 &lt;= col &lt; self.cols
-
-    def get_cell_state(self, row, col):
-        if not self.in_bounds(row, col):
-            return CELL_BLOCKED  # treat out-of-bounds as blocked
-        return self.cells[row][col]
-
-    def get_neighbors4(self, row, col):
-        """Return list of in-bounds orthogonal neighbors (no wall consideration)."""
-        res = []
-        if row &gt; 0:
-            res.append((row - 1, col))
-        if row &lt; self.rows - 1:
-            res.append((row + 1, col))
-        if col &gt; 0:
-            res.append((row, col - 1))
-        if col &lt; self.cols - 1:
-            res.append((row, col + 1))
-        return res
-
-    def _wall_index(self, row, col, nrow, ncol):
-        """Return (orientation, r, c) for wall between (row,col) and (nrow,ncol)."""
-        if row == nrow:
-            # vertical wall between cols
-            c = min(col, ncol)
-            return ("V", row, c)
-        elif col == ncol:
-            # horizontal wall between rows
-            r = min(row, nrow)
-            return ("H", r, col)
-        else:
-            return (None, None, None)
-
-    def get_wall_state_between(self, row, col, nrow, ncol):
-        orient, r, c = self._wall_index(row, col, nrow, ncol)
-        if orient is None:
-            return WALL_PRESENT
-        if orient == "H":
-            return self.h_walls[r][c]
-        else:
-            return self.v_walls[r][c]
-
-    # --- Updates enforcing invariants (CMP--3.Invariants) ---
-
-    def _set_cell_state(self, row, col, new_state):
-        """Internal: enforce UNKNOWN-&gt;FREE/BLOCKED only."""
-        if not self.in_bounds(row, col):
-            return
-        old = self.cells[row][col]
-        if old == new_state:
-            return
-        if old != CELL_UNKNOWN:
-            # Invalid transition: ignore per CMP--3.Failures
-            return
-        if new_state not in (CELL_FREE, CELL_BLOCKED):
-            return
-        self.cells[row][col] = new_state
-        self.unknown_cells_count -= 1
-        self._update_map_completeness()
-
-    def set_cell_free(self, row, col):
-        self._set_cell_state(row, col, CELL_FREE)
-
-    def set_cell_blocked(self, row, col):
-        self._set_cell_state(row, col, CELL_BLOCKED)
-
-    def _set_wall_state(self, orient, r, c, new_state):
-        """Internal: enforce UNKNOWN-&gt;PRESENT/ABSENT only."""
-        if orient == "H":
-            if not (0 &lt;= r &lt; self.rows - 1 and 0 &lt;= c &lt; self.cols):
-                return
-            old = self.h_walls[r][c]
-            if old != WALL_UNKNOWN or new_state not in (WALL_PRESENT, WALL_ABSENT):
-                return
-            self.h_walls[r][c] = new_state
-        else:
-            if not (0 &lt;= r &lt; self.rows and 0 &lt;= c &lt; self.cols - 1):
-                return
-            old = self.v_walls[r][c]
-            if old != WALL_UNKNOWN or new_state not in (WALL_PRESENT, WALL_ABSENT):
-                return
-            self.v_walls[r][c] = new_state
-        self.unknown_walls_count -= 1
-        self._update_map_completeness()
-
-    def set_wall_present_between(self, row, col, nrow, ncol):
-        orient, r, c = self._wall_index(row, col, nrow, ncol)
-        if orient is None:
-            return
-        self._set_wall_state(orient, r, c, WALL_PRESENT)
-
-    def set_wall_absent_between(self, row, col, nrow, ncol):
-        orient, r, c = self._wall_index(row, col, nrow, ncol)
-        if orient is None:
-            return
-        self._set_wall_state(orient, r, c, WALL_ABSENT)
-
-    def _update_map_completeness(self):
-        """Maintain GM_MapCompletenessFlag (CMP--3.Execution #6)."""
-        self.map_complete = (self.unknown_cells_count == 0 and self.unknown_walls_count == 0)
-
-    def is_complete(self):
-        return self.map_complete
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/exploration_status.py">
-<![CDATA[
-"""
-Exploration Status and Time Limit Module.
-
-Traces:
-- CMP--11 Exploration Status and Time Limit Module
-"""
-
-from core.events import Event, EventType
-
-
-class ExplorationStatus:
-    def __init__(self, grid_map, config, event_queue):
-        self.grid_map = grid_map
-        self.config = config
-        self.event_queue = event_queue
-
-        self.exploration_started = False
-        self.start_time_ms = 0
-        self.timeout_emitted = False
-        self.completed_emitted = False
-
-        self.elapsed_ms = 0
-        self.remaining_ms = self.config.exploration_time_limit_ms
-
-    def on_explore_start(self, mission_time_ms):
-        """Called by MissionControl when EXPLORE starts. (CMP--11.Execution)"""
-        self.exploration_started = True
-        self.start_time_ms = mission_time_ms
-        self.timeout_emitted = False
-        self.completed_emitted = False
-
-    def on_explore_stop(self):
-        """Optional hook when EXPLORE ends."""
-        self.exploration_started = False
-
-    def update(self, mission_time_ms):
-        """Called once per control loop by Scheduler (CMP--11.Execution)."""
-        if not self.exploration_started:
-            return
-
-        self.elapsed_ms = mission_time_ms - self.start_time_ms
-        if self.elapsed_ms &lt; 0:
-            self.elapsed_ms = 0
-        if self.elapsed_ms &gt; self.config.exploration_time_limit_ms:
-            self.elapsed_ms = self.config.exploration_time_limit_ms
-
-        self.remaining_ms = self.config.exploration_time_limit_ms - self.elapsed_ms
-        if self.remaining_ms &lt; 0:
-            self.remaining_ms = 0
-
-        # Timeout event (once)
-        if (not self.timeout_emitted and
-                self.elapsed_ms &gt;= self.config.exploration_time_limit_ms):
-            ev = Event(EventType.EXPLORATION_TIMEOUT, mission_time_ms, None)
-            self.event_queue.enqueue(ev)
-            self.timeout_emitted = True
-
-        # Map completeness event (once)
-        if (not self.completed_emitted and self.grid_map.is_complete()):
-            ev = Event(EventType.EXPLORATION_COMPLETED, mission_time_ms, None)
-            self.event_queue.enqueue(ev)
-            self.completed_emitted = True
-
-    def get_remaining_time_info(self):
-        """For CMP--1 and CMP--2: RemainingExplorationTimeInfo / TimeAwarePlanningInfo."""
-        return self.elapsed_ms, self.remaining_ms
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/frontier.py">
-<![CDATA[
-"""
-Frontier Generation and Target Selection.
-
-Traces:
-- CMP--2 Frontier Generation and Exploration Target Selection
-- Uses DAT--3 Time-Aware Planning
-"""
-
-from core.types import CELL_UNKNOWN, CELL_FREE
-
-
-class FrontierGenerator:
-    def __init__(self, grid_map, planner, config):
-        self.grid_map = grid_map
-        self.planner = planner
-        self.config = config
-
-    def compute_frontiers(self):
-        """Compute frontier cells (CMP--2.Purpose)."""
-        frontiers = []
-        for r in range(self.grid_map.rows):
-            for c in range(self.grid_map.cols):
-                if self.grid_map.get_cell_state(r, c) != CELL_UNKNOWN:
-                    continue
-                # Must have at least one FREE 4-neighbor
-                neighbors = self.grid_map.get_neighbors4(r, c)
-                has_free = any(self.grid_map.get_cell_state(nr, nc) == CELL_FREE for (nr, nc) in neighbors)
-                if has_free:
-                    frontiers.append((r, c))
-        return frontiers
-
-    def select_target(self, current_cell, remaining_time_ms):
-        """
-        Select single frontier target using a simple heuristic:
-        - Feasible given remaining_time_ms (DAT--3 frontier feasibility test).
-        - Minimizes path cost (CMP--2.Purpose).
-        Returns dict or None.
-        """
-        frontiers = self.compute_frontiers()
-        if not frontiers:
-            return None
-
-        best = None
-        best_cost = None
-        for (fr, fc) in frontiers:
-            path, cost = self.planner.plan_single(
-                start=current_cell,
-                goal=(fr, fc),
-                mode="EXPLORE",
-                max_cost=None,
-            )
-            if not path:
-                continue
-            # Estimate travel time (simplistic: steps * nominal per cell)
-            steps = len(path) - 1
-            est_travel_ms = steps * self.config.nominal_cell_traversal_ms
-            est_mapping_overhead_ms = self.config.nominal_cell_traversal_ms
-            if est_travel_ms + est_mapping_overhead_ms &gt; remaining_time_ms:
-                continue
-            if best_cost is None or cost &lt; best_cost:
-                best_cost = cost
-                best = {
-                    "target_cell": (fr, fc),
-                    "path": path,
-                    "cost": cost,
-                    "est_travel_ms": est_travel_ms,
-                }
-        return best
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/planner.py">
-<![CDATA[
-"""
-Path Planner.
-
-Traces:
-- CMP--4 Path Planner
-- DAT--2 Traversal Cost Model Parameters
-"""
-
-from core.types import CELL_FREE, CELL_BLOCKED
-from core.types import WALL_PRESENT
-
-
-class PathPlanner:
-    def __init__(self, grid_map, config):
-        self.grid_map = grid_map
-        self.config = config
-
-    # --- Core graph helpers ---
-
-    def _neighbors_free(self, cell):
-        """Return neighboring FREE cells with no PRESENT wall between them."""
-        (r, c) = cell
-        res = []
-        for (nr, nc) in self.grid_map.get_neighbors4(r, c):
-            if self.grid_map.get_cell_state(nr, nc) != CELL_FREE:
-                continue
-            if self.grid_map.get_wall_state_between(r, c, nr, nc) == WALL_PRESENT:
-                continue
-            res.append((nr, nc))
-        return res
-
-    def _heuristic(self, a, b):
-        """Manhattan heuristic for A* (CMP--4.Execution)."""
-        return abs(a[0] - b[0]) + abs(a[1] - b[1])
-
-    def _edge_cost(self, prev, cur, nxt, mode):
-        """
-        Cost according to DAT--2:
-        - baseStraightCost
-        - turnPenalty when direction changes
-        """
-        if mode == "SECOND_RUN":
-            base = self.config.second_run_straight_cost
-            turn_penalty = self.config.second_run_turn_penalty
-        else:
-            base = self.config.exploration_straight_cost
-            turn_penalty = self.config.exploration_turn_penalty
-
-        if prev is None or cur is None or nxt is None:
-            return base
-        dr1 = cur[0] - prev[0]
-        dc1 = cur[1] - prev[1]
-        dr2 = nxt[0] - cur[0]
-        dc2 = nxt[1] - cur[1]
-        if dr1 == dr2 and dc1 == dc2:
-            return base
-        return base + turn_penalty
-
-    # --- Public planning API (CMP--4.ConnectedComponents) ---
-
-    def plan_single(self, start, goal, mode="EXPLORE", max_cost=None):
-        """
-        Plan path from start to single goal cell using A*.
-        Returns (path:list[(r,c)], total_cost) or (None, None).
-        """
-        if self.grid_map.get_cell_state(start[0], start[1]) == CELL_BLOCKED:
-            return None, None
-        if self.grid_map.get_cell_state(goal[0], goal[1]) == CELL_BLOCKED:
-            return None, None
-
-        open_set = [start]
-        came_from = {}
-        g_score = {start: 0.0}
-        f_score = {start: self._heuristic(start, goal)}
-
-        while open_set:
-            # Find node with smallest f
-            current = None
-            best_f = None
-            for n in open_set:
-                f = f_score.get(n, 1e9)
-                if best_f is None or f &lt; best_f:
-                    best_f = f
-                    current = n
-
-            if current == goal:
-                return self._reconstruct_path(came_from, current), g_score[current]
-
-            open_set.remove(current)
-            neighbors = self._neighbors_free(current)
-            for neighbor in neighbors:
-                prev = came_from.get(current, None)
-                tentative_g = g_score[current] + self._edge_cost(prev, current, neighbor, mode)
-                if max_cost is not None and tentative_g &gt; max_cost:
-                    continue
-                if tentative_g &lt; g_score.get(neighbor, 1e9):
-                    came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g
-                    f_score[neighbor] = tentative_g + self._heuristic(neighbor, goal)
-                    if neighbor not in open_set:
-                        open_set.append(neighbor)
-        return None, None
-
-    def _reconstruct_path(self, came_from, current):
-        path = [current]
-        while current in came_from:
-            current = came_from[current]
-            path.append(current)
-        path.reverse()
-        return path
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/goal_region.py">
-<![CDATA[
-"""
-Goal Region Identification and Selection.
-
-Traces:
-- CMP--5 Goal Region Identification and Selection
-"""
-
-from core.types import CELL_FREE
-
-
-class GoalRegionSelector:
-    def __init__(self, grid_map, planner, config):
-        self.grid_map = grid_map
-        self.planner = planner
-        self.config = config
-        self.selected_region = None  # dict with 'cells', 'target_cell', 'cost'
-
-    def select_region(self, start_cell):
-        """
-        Enumerate all 2x2 FREE regions and pick region with minimal path cost
-        from start to any of its cells. (CMP--5.Execution)
-        """
-        best = None
-        best_cost = None
-        rows = self.grid_map.rows
-        cols = self.grid_map.cols
-        for r in range(rows - 1):
-            for c in range(cols - 1):
-                cells = [(r, c), (r + 1, c), (r, c + 1), (r + 1, c + 1)]
-                if not all(self.grid_map.get_cell_state(cr, cc) == CELL_FREE for (cr, cc) in cells):
-                    continue
-                # For each candidate, request path cost using planner
-                region_best_cost = None
-                region_best_cell = None
-                for (cr, cc) in cells:
-                    path, cost = self.planner.plan_single(start_cell, (cr, cc), mode="SECOND_RUN")
-                    if path:
-                        if region_best_cost is None or cost &lt; region_best_cost:
-                            region_best_cost = cost
-                            region_best_cell = (cr, cc)
-                if region_best_cost is None:
-                    continue
-                if best_cost is None or region_best_cost &lt; best_cost:
-                    best_cost = region_best_cost
-                    best = {
-                        "cells": cells,
-                        "target_cell": region_best_cell,
-                        "cost": region_best_cost,
-                    }
-        self.selected_region = best
-        return best
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/sensor_layer.py">
-<![CDATA[
-"""
-Sensor Abstraction and Filtering Layer.
-
-Traces:
-- CMP--7 Sensor Abstraction and Filtering Layer
-- DAT--5 Sensor Filtering and Consistency Parameters
-"""
-
-import time
-
-
-class SensorAbstractionLayer:
-    def __init__(self, ultrasonic, infrared, config):
-        self.ultrasonic = ultrasonic
-        self.infrared = infrared
-        self.config = config
-
-        self.ultra_buf = []
-        self.ir_left_buf = []
-        self.ir_right_buf = []
-
-        self.has_valid_ultra = False
-        self.has_valid_ir = False
-
-        self.sensor_available = False
-
-        self.last_filtered = {
-            "ultra_cm": None,
-            "ir_left": False,
-            "ir_right": False,
-            "timestamp_ms": 0,
-        }
-
-    # --- Public API used by Scheduler and others ---
-
-    def sample_and_filter(self):
-        """Perform one sampling and filtering step per control loop. (CMP--7.Execution)"""
-        t_ms = time.ticks_ms()
-        raw_ultra = self.ultrasonic.distance()
-        # Validate ultrasonic
-        if raw_ultra is not None and raw_ultra &gt;= 0:
-            self.has_valid_ultra = True
-        else:
-            # invalid, treat as no obstacle at large distance
-            raw_ultra = 999.0
-
-        raw_left = 1 if self.infrared.dsl() else 0
-        raw_right = 1 if self.infrared.dsr() else 0
-        # IR simple validity
-        self.has_valid_ir = True
-
-        self.ultra_buf.append(raw_ultra)
-        self.ir_left_buf.append(raw_left)
-        self.ir_right_buf.append(raw_right)
-
-        if len(self.ultra_buf) &gt; self.config.ultrasonic_window:
-            self.ultra_buf.pop(0)
-        if len(self.ir_left_buf) &gt; self.config.ir_window:
-            self.ir_left_buf.pop(0)
-        if len(self.ir_right_buf) &gt; self.config.ir_window:
-            self.ir_right_buf.pop(0)
-
-        # Moving average filter
-        f_ultra = sum(self.ultra_buf) / len(self.ultra_buf)
-        f_left = sum(self.ir_left_buf) / len(self.ir_left_buf)
-        f_right = sum(self.ir_right_buf) / len(self.ir_right_buf)
-
-        self.last_filtered = {
-            "ultra_cm": f_ultra,
-            "ir_left": f_left &gt;= 0.5,
-            "ir_right": f_right &gt;= 0.5,
-            "timestamp_ms": t_ms,
-        }
-
-        if self.has_valid_ultra and self.has_valid_ir:
-            self.sensor_available = True
-
-    def get_filtered(self):
-        """Return last filtered sensor data (SAL_FilteredSensorData)."""
-        return self.last_filtered
-
-    def get_sensor_availability(self):
-        """Return SensorAvailabilityStatus for CMP--1 (MissionControl)."""
-        return self.sensor_available
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/mapping.py">
-<![CDATA[
-"""
-Mapping and Wall Detection Module.
-
-Traces:
-- CMP--6 Mapping and Wall Detection Module
-- DAT--4 Ultrasonic Uncertainty and Clearance Checks
-- DAT--5 Sensor Filtering and Consistency Parameters
-"""
-
-from core.types import CELL_UNKNOWN, CELL_FREE, CELL_BLOCKED
-from core.types import WALL_UNKNOWN, WALL_PRESENT, WALL_ABSENT
-
-
-class MappingModule:
-    def __init__(self, grid_map, config):
-        self.grid_map = grid_map
-        self.config = config
-
-    def update_from_sensors(self, pose, sal_data):
-        """
-        Apply simple mapping rules based on filtered sensors and pose.
-        This is a simplified version focusing on:
-        - front wall detection using ultrasonic
-        - free cell confirmation when pose at cell center
-        Traces CMP--6.Execution steps 1,2,3 partially.
-        """
-        if sal_data is None:
-            return
-
-        # Free cell confirmation: mark current cell FREE if UNKNOWN
-        cr, cc = pose.cell
-        if self.grid_map.get_cell_state(cr, cc) == CELL_UNKNOWN:
-            self.grid_map.set_cell_free(cr, cc)
-
-        # Front wall detection using ultrasonic (DAT--4)
-        d_cm = sal_data["ultra_cm"]
-        if d_cm is None:
-            return
-        # Expand reading
-        d_min = d_cm - self.config.ultrasonic_uncertainty_cm
-        d_max = d_cm + self.config.ultrasonic_uncertainty_cm
-        # Expected center-to-wall distance for front wall (approx)
-        approx = (self.config.cell_size_cm / 2.0) + (self.config.wall_thickness_cm / 2.0)
-        # If intervals intersect, mark wall PRESENT in heading direction
-        if d_min &lt;= approx &lt;= d_max:
-            self._set_front_wall_present(pose)
-
-    def _set_front_wall_present(self, pose):
-        """Mark wall PRESENT in front of current cell; infer neighbor BLOCKED if UNKNOWN."""
-        cr, cc = pose.cell
-        heading = pose.heading  # 0:N,1:E,2:S,3:W
-        nr, nc = cr, cc
-        if heading == 0:  # NORTH -> row-1
-            nr = cr - 1
-        elif heading == 1:  # EAST
-            nc = cc + 1
-        elif heading == 2:  # SOUTH
-            nr = cr + 1
-        elif heading == 3:  # WEST
-            nc = cc - 1
-        # Update wall
-        self.grid_map.set_wall_present_between(cr, cc, nr, nc)
-        # Blocked cell inference (CMP--3.Execution 2)
-        if self.grid_map.in_bounds(nr, nc):
-            if self.grid_map.get_cell_state(nr, nc) == CELL_UNKNOWN:
-                self.grid_map.set_cell_blocked(nr, nc)
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/motion_control.py">
-<![CDATA[
-"""
-Motion Control and Collision Avoidance.
-
-Traces:
-- CMP--8 Motion Control and Collision Avoidance
-- DAT--6 Motion Primitive Specification
-"""
-
-import time
-
-
-class MotionController:
-    MODE_NORMAL = 0
-    MODE_AVOIDANCE = 1
-    MODE_EMERGENCY_STOPPED = 2
-
-    def __init__(self, motor, sal, config):
-        self.motor = motor
-        self.sal = sal
-        self.config = config
-
-        self.mode = self.MODE_NORMAL
-        self.left_speed = 0
-        self.right_speed = 0
-
-        self.current_command = None  # dict from MissionControl
-
-    def set_motion_command(self, cmd):
-        """
-        Receive MC_MotionCommand from MissionControl. (CMP--8.ConnectedComponents)
-        cmd: dict with keys:
-            - 'left_speed', 'right_speed' in [0,100]
-        """
-        self.current_command = cmd
-        if self.mode == self.MODE_EMERGENCY_STOPPED:
-            # Accept as new safe trajectory; resume NORMAL
-            self.mode = self.MODE_NORMAL
-
-    def _apply_rate_limit(self, target_left, target_right):
-        dl = target_left - self.left_speed
-        dr = target_right - self.right_speed
-        max_delta = self.config.max_speed_delta_per_cycle
-        if dl &gt; max_delta:
-            dl = max_delta
-        if dl &lt; -max_delta:
-            dl = -max_delta
-        if dr &gt; max_delta:
-            dr = max_delta
-        if dr &lt; -max_delta:
-            dr = -max_delta
-        self.left_speed += dl
-        self.right_speed += dr
-
-    def _emergency_check(self):
-        """Check distance to obstacle and trigger emergency stop if needed. (CMP--8.Execution 2)"""
-        data = self.sal.get_filtered()
-        if not data:
-            return
-        d_cm = data["ultra_cm"]
-        if d_cm is not None and d_cm &lt;= self.config.emergency_stop_distance_cm:
-            # Immediate stop
-            self.motor.stop()
-            self.left_speed = 0
-            self.right_speed = 0
-            self.mode = self.MODE_EMERGENCY_STOPPED
-
-    def update(self):
-        """
-        Called once per control loop by Scheduler after mission planning. (CMP--8.Execution)
-        """
-        # Emergency stop if required (unless already stopped)
-        if self.mode != self.MODE_EMERGENCY_STOPPED:
-            self._emergency_check()
-
-        if self.mode == self.MODE_EMERGENCY_STOPPED:
-            # Ensure motors stopped
-            self.motor.stop()
-            self.left_speed = 0
-            self.right_speed = 0
-            return
-
-        # Normal / avoidance (avoidance not implemented in detail here)
-        target_left = 0
-        target_right = 0
-        if self.current_command:
-            target_left = int(self.current_command.get("left_speed", 0))
-            target_right = int(self.current_command.get("right_speed", 0))
-
-        # Enforce maximum speed
-        max_speed = 100
-        if target_left &gt; max_speed:
-            target_left = max_speed
-        if target_right &gt; max_speed:
-            target_right = max_speed
-
-        # Apply rate limiting (CMP--8.Invariants)
-        self._apply_rate_limit(target_left, target_right)
-
-        # Send to hardware once per loop
-        if self.left_speed == 0 and self.right_speed == 0:
-            self.motor.stop()
-        else:
-            # Use set() (both wheels)
-            self.motor.set(self.left_speed, self.right_speed)
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/pose.py">
-<![CDATA[
-"""
-Pose Estimation Module.
-
-Traces:
-- CMP--9 Pose Estimation Module
-"""
-
-import time
-
-
-class PoseEstimator:
-    def __init__(self, config):
-        self.config = config
-        # Continuous pose
-        self.x_cm = 0.0
-        self.y_cm = 0.0
-        self.theta_deg = 0.0  # 0: +y (NORTH) for simplicity
-        # Discrete pose
-        self.cell = (0, 0)
-        self.heading = 0  # 0:N,1:E,2:S,3:W
-
-    def update(self, motion):
-        """
-        Simplified update: we don't integrate real kinematics but,
-        for demonstration, we keep fixed cell/heading.
-        In a full implementation, integrate wheel speeds over T. (CMP--9.Execution)
-        """
-        # Map continuous pose to cell indices
-        r, c = self.cell
-        if r &lt; 0:
-            r = 0
-        if r &gt;= self.config.rows:
-            r = self.config.rows - 1
-        if c &lt; 0:
-            c = 0
-        if c &gt;= self.config.cols:
-            c = self.config.cols - 1
-        self.cell = (r, c)
-        # Heading stays discretized
-        self.heading = self.heading % 4
-
-    def get_pose_estimate(self):
-        """Return PoseEstimate for mission control etc. (CMP--9.ConnectedComponents)"""
-        return {
-            "cell": self.cell,
-            "heading": self.heading,
-        }
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/mission_control.py">
-<![CDATA[
-"""
-Mission Control State Machine.
-
-Traces:
-- CMP--1 Mission Control State Machine
-- FSM--1 Mission State Machine
-"""
-
-from core.types import (
-    MISSION_IDLE,
-    MISSION_EXPLORE,
-    MISSION_RETURN_TO_START,
-    MISSION_SECOND_RUN,
-    MISSION_COMPLETED,
-)
-from core.types import SECOND_RUN_NOT_EXECUTED, SECOND_RUN_SUCCESS, SECOND_RUN_FAILURE
-from core.events import EventType
-
-
-class MissionController:
-    def __init__(
-        self,
-        grid_map,
-        frontier,
-        planner,
-        goal_region,
-        motion,
-        exploration_status,
-        sal,
-        pose,
-        event_queue,
-        config,
-    ):
-        self.grid_map = grid_map
-        self.frontier = frontier
-        self.planner = planner
-        self.goal_region = goal_region
-        self.motion = motion
-        self.exploration_status = exploration_status
-        self.sal = sal
-        self.pose = pose
-        self.event_queue = event_queue
-        self.config = config
-
-        self.state = MISSION_IDLE
-        self.mc_second_run_status = SECOND_RUN_NOT_EXECUTED
-        self.init_completed = False
-
-        self.mission_time_ms = 0
-
-    # --- Inputs from Scheduler (CMP--10) ---
-
-    def set_init_completed(self):
-        """Called once initialization finishes. (CMP--10.Transmit InitCompletedFlag)"""
-        self.init_completed = True
-
-    def update_mission_time(self, t_ms):
-        self.mission_time_ms = t_ms
-
-    # --- Main control step, called once per control loop (CMP--1.Execution) ---
-
-    def step(self):
-        pose_est = self.pose.get_pose_estimate()
-        sensor_avail = self.sal.get_sensor_availability()
-
-        # Process queued events (DAT--7)
-        events = self.event_queue.dequeue_all()
-        exploration_completed = False
-        exploration_timeout = False
-        for ev in events:
-            if ev.etype == EventType.EXPLORATION_COMPLETED:
-                exploration_completed = True
-            elif ev.etype == EventType.EXPLORATION_TIMEOUT:
-                exploration_timeout = True
-
-        # --- FSM--1 transitions and actions ---
-
-        if self.state == MISSION_IDLE:
-            # StateAction IDLE (FSM--1)
-            if self.init_completed and sensor_avail:
-                # Transition IDLE -&gt; EXPLORE (FSM--1)
-                self.exploration_status.on_explore_start(self.mission_time_ms)
-                self.state = MISSION_EXPLORE
-
-        elif self.state == MISSION_EXPLORE:
-            # StateAction EXPLORE (FSM--1)
-            elapsed_ms, remaining_ms = self.exploration_status.get_remaining_time_info()
-            current_cell = pose_est["cell"]
-
-            # Request frontier target and plan path
-            target_info = self.frontier.select_target(current_cell, remaining_ms)
-            if target_info is not None:
-                # Use simple motor command that just drives forward at exploration speed
-                speed = int(self.config.max_exploration_speed_cm_s / self.config.motor_speed_scale)
-                cmd = {"left_speed": speed, "right_speed": speed}
-                self.motion.set_motion_command(cmd)
-
-            # Transition EXPLORE -&gt; RETURN_TO_START (FSM--1)
-            if exploration_completed or exploration_timeout:
-                self.exploration_status.on_explore_stop()
-                self.state = MISSION_RETURN_TO_START
-
-        elif self.state == MISSION_RETURN_TO_START:
-            # StateAction RETURN_TO_START (FSM--1)
-            # For simplicity: when in this state, just stop motors and immediately
-            # assume we are at start cell.
-            self.motion.set_motion_command({"left_speed": 0, "right_speed": 0})
-            # Transition RETURN_TO_START -&gt; SECOND_RUN (FSM--1)
-            # Start cell is (0,0) per DAT--1
-            self.pose.cell = (0, 0)
-            self.state = MISSION_SECOND_RUN
-            self.mc_second_run_status = SECOND_RUN_NOT_EXECUTED
-
-        elif self.state == MISSION_SECOND_RUN:
-            # StateAction SECOND_RUN (FSM--1)
-            # Select goal region and plan fastest path.
-            start_cell = (0, 0)
-            region = self.goal_region.select_region(start_cell)
-            if region is None:
-                # No region; treat as failure and end mission
-                self.mc_second_run_status = SECOND_RUN_FAILURE
-                self.state = MISSION_COMPLETED
-            else:
-                goal = region["target_cell"]
-                path, cost = self.planner.plan_single(start_cell, goal, mode="SECOND_RUN")
-                if path is None:
-                    self.mc_second_run_status = SECOND_RUN_FAILURE
-                    self.state = MISSION_COMPLETED
-                else:
-                    # Command higher speed run; simplified as straight drive
-                    speed = int(self.config.max_second_run_speed_cm_s / self.config.motor_speed_scale)
-                    cmd = {"left_speed": speed, "right_speed": speed}
-                    self.motion.set_motion_command(cmd)
-                    # For demo, immediately declare success
-                    self.mc_second_run_status = SECOND_RUN_SUCCESS
-                    self.state = MISSION_COMPLETED
-
-        elif self.state == MISSION_COMPLETED:
-            # StateAction COMPLETED (FSM--1)
-            # No new motion commands
-            self.motion.set_motion_command({"left_speed": 0, "right_speed": 0})
-]]>
-        </CodeFile>
-
-        <CodeFile name="core/scheduler.py">
-<![CDATA[
-"""
-Scheduler and Initialization.
-
-Traces:
-- CMP--10 Scheduler and Initialization
-"""
-
-import time
-
-
-class Scheduler:
-    def __init__(
-        self,
-        config,
-        sal,
-        grid_map,
-        mapping,
-        mission,
-        planner,
-        motion,
-        pose,
-        exploration_status,
-    ):
-        self.config = config
-        self.sal = sal
-        self.grid_map = grid_map
-        self.mapping = mapping
-        self.mission = mission
-        self.planner = planner
-        self.motion = motion
-        self.pose = pose
-        self.exploration_status = exploration_status
-
-        self.init_system()
-
-    def init_system(self):
-        """Run initialization and set INIT_COMPLETED for mission control. (CMP--10.Execution)"""
-        # Grid map already initialized in constructor; pose at start
-        self.pose.cell = self.grid_map.start_cell
-        # Signal mission control
-        self.mission.set_init_completed()
-
-    def run_forever(self):
-        """Main control loop at fixed period T. (CMP--10.Execution)"""
-        period_s = self.config.control_loop_period_s
-        while True:
-            start = time.ticks_ms()
-
-            # 1) Emit control loop tick: implicit by calling each module
-            # 2) Acquire sensor readings via SAL (CMP--7.Execution)
-            self.sal.sample_and_filter()
-            sal_data = self.sal.get_filtered()
-
-            # 3) Update mapping (CMP--6.Execution)
-            self.mapping.update_from_sensors(self.pose, sal_data)
-
-            # 4) Update exploration status (CMP--11.Execution)
-            self.exploration_status.update(start)
-
-            # 5) Update mission control state machine (CMP--1.Execution)
-            self.mission.update_mission_time(start)
-            self.mission.step()
-
-            # 6) Update pose estimation (CMP--9.Execution)
-            self.pose.update(self.motion)
-
-            # 7) Motion control (CMP--8.Execution)
-            self.motion.update()
-
-            # Maintain period
-            elapsed_ms = time.ticks_ms() - start
-            sleep_ms = int(period_s * 1000 - elapsed_ms)
-            if sleep_ms &gt; 0:
-                time.sleep_ms(sleep_ms)
 ]]>
         </CodeFile>
     </Code>

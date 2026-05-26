@@ -1,0 +1,251 @@
+Log of Implementation Engineer
+[2026-05-26--14:46:05]User: You will now be provided with a design document for a software that you need to create
+
+The design document is formated as detailed here:
+
+Software Design Policy (SDP)
+
+The Objective of the Design Document is to Detail the Software Design in these Artifacts:
+a. Component
+b. State Machine
+c. Additional Data
+
+Document Structure
+1. Findings are to be structured using XML files.
+2. Only One Document is used to store all artifacts.
+3. The Document must start with the <Design> tag.
+
+Document Template
+<Design>
+    <Components>
+    ...
+    </Components>
+    <StateMachines>
+    ...
+    </StateMachines>
+    <AdditionalData>
+    ...
+    </AdditionalData>
+</Design>
+
+Component Structure
+1. All components must be under the <Components> Tag
+2. Each Components tag must have the version attribute, containing the version of the Artifact
+3. Below the <Components> tag, every component must be stored inside its own <Component> tag.
+
+4. Each component must have the following children
+   a. <ID>: unique identifier for the component
+   b. <Name> a descriptive name for the component
+   c. <Purpose>: A detailed description of what the component does
+   d. <ConnectedComponents>: All components that have some sort of connection to the component, inside <ConnectedComponent> tags. The ConnectedComponent tag must have these children
+    d1. <Identifier>: The identifier of the connected component.
+    d2. <Transmit>: All Signals that are transmitted by the connected component to the component, inside <Signal> tags. The Signal tag must have these children
+        d2,1: <Name>: The identifier of the Signal
+        d2,2 <Description>: Description of the Signal containing everything relevant for implementation
+    d3. <Receive>: All Signals that are transmitted by the component to the connected component, inside <Signal> tags. The Signal tag must have these children
+        d3,1: <Name>: The identifier of the Signal
+        d3,2 <Description>: Description of the Signal containing everything relevant for implementation
+   e. <Execution>: Description of the Conditions required for the components execution
+   f. <Timing>: The timing constraints set onto the component, including execution frequency, in plain text.
+   g. <Invariants>: All Invariants, in plain text.
+   h. <Failures>: All Failure States including how to get to them, in plain text.
+   i. <DerivedFrom>: All Low Level Requirements this Component is derived from
+
+Component Template
+
+<Components  version="{version}">
+    <Component>
+        <ID> {Identifier} </ID>
+        <Name> {Name}  <Name>
+        <Purpose> {Purpose} </Purpose>
+        <ConnectedComponents>
+            <ConnectedComponent>
+                <Identifier> {Identifier} </Identifier>
+                <Transmit>
+                    <Signal>
+                        <Name>{Signal Name}</Name>
+                        <Description>{Signal Description}</Description>
+                    </Signal>
+                </Transmit>
+                <Receive>
+                    <Signal>
+                        <Name>{Signal Name}</Name>
+                        <Description>{Signal Description}</Description>
+                    </Signal>
+                </Receive>
+            </ConnectedComponent>
+        </ConnectedComponents>
+        <Execution> {Execution Conditions} </Execution>
+        <Timing> {Timing Constraints} </Timing>
+        <Invariants> {Invariants} </Invariants>
+        <Failures> {Failures} </Failures>
+        <DerivedFrom> {Requirements} </DerivedFrom>
+    </Component>
+</Components>
+
+State Machine Structure
+1. All State Machines must be under the <StateMachines> Tag
+2. Each State Machines tag must have the version attribute, containing the version of the Artifact
+3. Below the <StateMachines> tag, every state machine must be stored inside its own <StateMachine> tag.
+
+4. Each State Machine must have the following children
+    a. <ID>: unique identifier for the State Machine
+    b. <OfComponent>: reference to the component that own the State Machine
+    c. <States> :All possible States, inside <State> tags. The State tag must have these children
+        c1. <Name>: The Name of the State
+        c2. <StateAction>: Optional: The Action performed when the state is active
+    d. <Transitions>: All possible Transitions between States, inside <Transition> tags. The Transition tag must have these children
+        d1. <From>: The State the transition starts in
+        d2. <To>: The State the transitions ends in
+        d3. <Trigger>: The Event that needs to happen for the transition to start, explained
+        d4. <Guard>: Optional: Conditions that need to be met for the transition to start, explained
+        d5. <TransitionAction>: Optional: The Action performed when the transition happens
+    e. <DerivedFrom>: All Low Level Requirements this State Machine is derived from
+
+State Machine Template
+
+<StateMachines  version="{version}">
+    <StateMachine>
+        <ID> {Identifier} </ID>
+        <OfComponent>{Component}</OfComponent>
+        <States>
+            <State>
+                <Name>{Name}</Name>
+                <StateAction>{Action}</StateAction>
+            </State>
+        </States>
+        <Transitions>
+            <Transition>
+                <From>{From State}</From>
+                <To>{To State}</To>
+                <Trigger>{Trigger}</Trigger>
+                <Guard>{Guard}</Guard>
+                <TransitionAction>{Action}</TransitionAction>
+            </Transition>
+        </Transitions>
+        <DerivedFrom> {Requirements} </DerivedFrom>
+    </StateMachine>
+</StateMachines>
+
+Additional Data Structure
+1. Additional Data must be under the <AdditionalData> Tag
+2. Each additional data tag must have the version attribute, containing the version of the Artifact
+3. Below the <AdditionalData> tag, every bit of data must be stored inside its own <Data> tag.
+
+4.  Each Data point must have the following children
+    a. <ID>: unique identifier for the Data Point
+    b. <Content>: The content of the data, describing everything needed for implementation
+    c. <DerivedFrom>: All Low Level Requirements this Data is derived from
+
+<AdditionalData  version="{version}">
+    <Data>
+        <ID> {Identifier} </ID>
+        <Content>
+            {Content}
+        </Content>
+        <DerivedFrom> {Requirements}</DerivedFrom>
+    </Data>
+</AdditionalData>
+
+Identification
+  The content of the artifacts <ID> tag must conform to the pattern:
+  "{type}--{counter}"
+  "type": The type of artifact: "CMP": Component, "FSM": State Machine, "DAT": Additional Data
+  "counter": The number of the artifact in its category, starting with 1
+
+
+Differentiation
+
+All software components need to be structured into the Component Artifact, to describe their behaviour State Machines are used.
+Information from the LLRs that do not fit into either Artifact type are to be put into the additional data Artifact. 
+
+From it you must create a Implementation in a document formated as detailed here
+
+Software Coding Policy
+
+1.Format
+When prompted you must submit one document containing the file structure and all code files that make up the project, all contained under the <Implementation> tag. This tag has one child <Structure> and one child <Code>
+
+<Implementation>
+    <Structure>
+    ...
+    </Structure>
+    <Code>
+    ...
+    </Code>
+</Implementation>
+
+
+2. Structure
+The Structure must start with the <Structure> tag, the Structure tag can have two types of children:
+   a. The <File> tag, containing the name of the file
+   b. The <Directory> tag, with the attribute "name", containing the directory name. The directory can have children of type directory, or file.
+
+Structure Template
+
+<Structure>
+    <Directory name="{Directory Name}">
+        <File>{File Name}</File>
+        <Directory name="{Directory Name}">
+            ...
+        </Directory>
+    </Directory>
+    <File>{File Name}</File>
+</Structure>
+
+3. Code
+The Code must start with the <Code> tag and has one type of child:
+    a. <CodeFile> tag, with the attribute "name", containing the files name and matching to one file in the Structure, the content of the <CodeFile> is the code that lives in the file in the programming lanugage specified
+
+Code Template
+<Code>
+    <CodeFile name="{name}">
+    </CodeFile>
+</Code>
+
+4. Coding Standard
+It is imperative that the code is well documented and segments are traced to the design artifact, for later testing 
+
+Specific information that is relevant for the project, including programming language follows:
+
+The implementation is to be done in python using micropython to run on a raspberry pi pico go
+To access any function first a object of the class type needs to be created
+
+this is the path from the root you code will be at the python root
+
+Your main file must be named main.py
+
+
+Here are all relevant functions that can be used
+
+Waveshare.battery:
+class: Battery
+functions:
+get_percentage()
+get_voltag()
+
+Waveshare.motor:
+class: Motor
+functions:
+backward(self, speed: int) -> None
+forward(self, speed: int) -> None
+left(self, speed: int) -> None
+right(self, speed: int) -> None
+set(self, left_speed: int, right_speed: int) -> None
+stop(self) -> None
+
+Waveshare.ultrasonic_sensor:
+class: UltrasonicSensor
+functions:
+distance(self) -> float
+
+Waveshare.infrared:
+class: Infrared
+functions:
+dsl(self) -> bool
+dsr(self) -> bool 
+
+If prompted to answer, answer with the xml document, otherwise answer only with "check"
+
+
+[2026-05-26--14:46:06]Agent: check

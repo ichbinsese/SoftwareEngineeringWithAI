@@ -3,7 +3,7 @@ class Battery:
 
     def __init__(self):
         """Initialize battery management"""
-        from Implementation.Waveshare.MicroPython.waveshare_battery import inits       
+        from MicroPython.waveshare_battery import init
         init()
 
     @property

@@ -1,0 +1,6 @@
+<Structure>
+    <Directory name="{Directory Name}">
+        <File>{File Name}</File>
+    </Directory>
+    <File>main.py</File>
+</Structure>
