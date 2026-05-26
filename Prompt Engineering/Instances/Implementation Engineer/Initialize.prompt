@@ -1,4 +1,18 @@
 You will now be provided with a design document for a software that you need to create
+
 The design document is formated as detailed here:
 
 {{file}} <Design\Policies\sdp.txt>
+
+From it you must create a Implementation in a document formated as detailed here
+
+{{file}} <Implementation\Policies\scp.txt>
+
+Specific information that is relevant for the project, including programming language follows:
+
+{{file}} <Implementation\specific_prompt.txt>
+
+If prompted to answer, answer with the xml document, otherwise answer only with "check"
+
+{send}
+{check}

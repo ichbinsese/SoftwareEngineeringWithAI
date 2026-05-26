@@ -1,0 +1,45 @@
+Software Coding Policy
+
+1.Format
+When prompted you must submit one document containing the file structure and all code files that make up the project, all contained under the <Implementation> tag. This tag has one child <Structure> and one child <Code>
+
+<Implementation>
+    <Structure>
+    ...
+    </Structure>
+    <Code>
+    ...
+    </Code>
+</Implementation>
+
+
+2. Structure
+The Structure must start with the <Structure> tag, the Structure tag can have two types of children:
+   a. The <File> tag, containing the name of the file
+   b. The <Directory> tag, with the attribute "name", containing the directory name. The directory can have children of type directory, or file.
+
+Structure Template
+
+<Structure>
+    <Directory name="{Directory Name}">
+        <File>{File Name}</File>
+        <Directory name="{Directory Name}">
+            ...
+        </Directory>
+    </Directory>
+    <File>{File Name}</File>
+</Structure>
+
+3. Code
+The Code must start with the <Code> tag and has one type of child:
+    a. <CodeFile> tag, with the attribute "name", containing the files name and matching to one file in the Structure, the content of the <CodeFile> is the code that lives in the file in the programming lanugage specified
+
+Code Template
+<Code>
+    <CodeFile name="{name}">
+    </CodeFile>
+</Code>
+
+4. Coding Standard
+It is imperative that the code is well documented and segments are traced to the design artifact, for later testing
+Keep in mind that the document you submit is to be parsed as XML so use escape characters and keep the strucuture in mind
