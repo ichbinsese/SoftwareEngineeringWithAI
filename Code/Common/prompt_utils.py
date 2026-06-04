@@ -44,6 +44,12 @@ class _MarkerFunctions:
         return plain_text
 
     @staticmethod
+    def Implementation(plain_text:str, position:int):
+        requirements = ProjectUtils.read_file(f"Implementation/Raw/Implementation_{IterationManager.get_iteration("id")}.xml")
+        plain_text = plain_text[:position] + requirements + plain_text[position:]
+        return plain_text
+
+    @staticmethod
     def file(plain_text:str, position:int):
         path = plain_text[plain_text.find("<",position) + 1:plain_text.find(">",position)]
         plain_text = plain_text.replace("<" + path + ">","",1)
@@ -143,9 +149,11 @@ class Prompt(object):
         "{{HLRs}}" : _MarkerFunctions.HLRs,
         "{{LLRs}}" : _MarkerFunctions.LLRs,
         "{{LLRAs}}" : _MarkerFunctions.LLRAs,
-       " {{LastDesign}}" : _MarkerFunctions.LastDesign,
+        "{{LastDesign}}" : _MarkerFunctions.LastDesign,
         "{{Design}}" : _MarkerFunctions.Design,
+        "{{Implementation}}": _MarkerFunctions.Implementation,
         "{{file}}" : _MarkerFunctions.file,
+
     }
 
     splitters = {

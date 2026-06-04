@@ -1,0 +1,61 @@
+Software Findings Policy (SFP)
+
+When a Verifier notices an Error or Inconsistency in any Document a Finding is created, which details the Error, Its location and a possible solution.
+The creator of the Original Document has to process each Finding and either implement the solution, or justify why the problem does not need to be fixed.
+
+Findings Document Structure
+1. Findings are to be structured using XML files.
+2. A Findings Document always contain findings of only one document
+3. All documents must start with the <Findings> tag.
+4. The <Findings> tag must have three attributes:
+   a. “version”: the findings documents version
+   b. “source”: specifies the type of document the findings reference
+   c. “source_version”: specifies the version of the source document
+
+Findings Structure
+6.  Below the <Findings> tag, every finding must be stored inside its own <Finding> tag.
+    a. each finding must have the attribute "id"
+
+7. Each Finding must have the following children
+    a. <ItemID> The ID of the Item the Finding references
+    b. <Description> Description of the Finding
+    c. <Solution> A Suggestion as how to fix the Problem
+    d. <Severity> Severity how the finding
+
+8. Findings can have the following children, in certain circumstances
+    e <RollbackPhase> to which phase the development needs to be rolled back to fix the findings
+
+Finding Template
+
+<Findings version="{version}" source= "{source}" source_version = "{source_version}"  >
+    <Finding ID = "{finding id}">
+        <ItemID> {RequirementID} </ItemID>
+        <Severity> {Severity} </Severity>
+        <Description> {Description} </Description>
+        <Solution> {Solution} </Solution>
+        <RollbackPhase> {Optional: Rollback Phase}</RollbackPhase>
+    </Finding>
+</Findings>
+
+Identification
+  The content of the findings <ID> tag must conform to the pattern:
+  "{source_type}--{source_version}--{counter}"
+  "source_type": The type of the source document
+  "source_version": The version of the source document
+  "counter": The number of the finding of the document, starting with 1
+
+Severity
+    Severity can have 3 Grades
+    a. "Minor": Only affects one item, minor changes needed in the current phase
+    b. "Major": Affects multiple items, major changes needed in the current phase
+    c. "Catastrophic": Affects multiple items, it is necessary to change items in prior phases
+
+    Whenever a catastrophic finding is detected, only catastrophic findings are to be documented.
+    Catastrophic findings need to have the Rollback Phase child, indicating to which phase the process needs to be rolled back to fix the problem.
+    It is advised to only roll back to the previous phase, but it is possible to rollback multiple phases
+    The phases are as follows:
+    a. "High Level Requirements"
+    b. "Low Level Requirements"
+    c. "Design"
+    d. "Implementation"
+

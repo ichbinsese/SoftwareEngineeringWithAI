@@ -1,0 +1,24 @@
+Here is the message from the tester:
+
+{{file}} <Implementation\Tester Findings\Tester Finding_{{iteration}}<tf>.xml>
+
+Here are the Documents:
+
+High Level and Low Level Requirements:
+{{requirements}}
+
+Design:
+{{Design}}
+
+Implementation:
+{{Implementation}}
+
+Answer with the Phase the Mistake that caused the Fault described by the Tester occurred in
+
+{send}
+{store} <Implementation\Answers\Phase_{{iteration}}<aa>.xml>
+
+Now Answer with the Finding
+
+{send}
+{store} <Implementation\Answers\Findings_{{iteration}}<aa>.xml>

@@ -1,0 +1,17 @@
+Your previous requirements were corrected
+
+{{file}} <Implementation\Findings\Implementation Findings_{{iteration}}<if>.xml>
+
+Incorporate them into your previous Implementation.
+
+This is the previous version of your Design:
+
+and this is the Design
+
+{{Design}}
+
+Answer with the Implementation
+
+{send}
+{store} <Design\Documents\Generated\Design Document_{{iteration}}<dd>.xml>
+

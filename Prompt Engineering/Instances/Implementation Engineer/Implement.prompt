@@ -2,7 +2,7 @@ Here is the Design File:
 {{Design}}
 
 Create a Implementation as described in the documents you were given previously, make sure everything works, runs and is traced correctly.
-Answer with the XML document
+Answer only with the XML document
 
 {send}
-{store} <Implementation\Micromouse\Raw\Implementation.xml>
+{store} <Implementation\Raw\Implementation_{{iteration}}<id>.xml>

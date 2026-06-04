@@ -7,11 +7,16 @@ class IterationManager:
     iterations = {
         "llr" : 1,
         "hlr" : 1,
+        "hlf" : 1,
         "llf" : 1,
         "lla" : 1,
         "dd" : 1,
         "df" : 1,
         "da" : 1,
+        "id" : 1,
+        "if" : 1,
+        "tf" : 1,
+        "aa" : 1,
      }
 
     @staticmethod
